@@ -1,0 +1,73 @@
+# Zig build artifacts
+zig-cache/
+zig-out/
+.zig-cache/
+release/
+debug/
+uuid
+test_clickhouse/
+src/ws_nodes.json
+src/wss_nodes.json
+src/rpc_nodes.json
+rpc_client
+rpc_test
+indexer_test
+test_clickhouse
+status
+solana_indexer
+logs.txt
+store/
+metadata/
+metadata_dropped/
+data/
+dictionaries_lib/
+flags/
+venv/
+user_scripts/
+user_files/
+test-ledger/
+tmp/
+zindexer/
+format_schemas/
+preprocessed_configs/
+
+# Build artifacts
+*.o
+*.obj
+*.exe
+*.pdb
+*.lib
+*.a
+*.dll
+*.so
+*.dylib
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Project-specific binaries
+solana-indexer
+
+# Environment files
+.env
+*.env
+
+# Logs
+*.log
+logs/
+
+# Dependencies
+deps/
+.deps/
+
+# Test artifacts
+test-*/
+coverage/ 
