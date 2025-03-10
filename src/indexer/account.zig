@@ -3,7 +3,7 @@ const Allocator = std.mem.Allocator;
 const types = @import("types.zig");
 const core = @import("core.zig");
 
-pub fn processAccountUpdates(indexer: *core.Indexer, slot: u64, block_time: i64, tx_json: std.json.Value) !void {
+pub fn processAccountUpdates(indexer: *core.Indexer, slot: u64, block_time: i64, tx_json: std.json.Value, network_name: []const u8) !void {
     const tx = tx_json.object;
     const meta = tx.get("meta").?.object;
     const message = tx.get("transaction").?.object.get("message").?.object;
@@ -35,6 +35,7 @@ pub fn processAccountUpdates(indexer: *core.Indexer, slot: u64, block_time: i64,
             // Insert account data if balance changed
             if (pre_balance != post_balance) {
                 try indexer.db_client.insertAccount(.{
+                    .network = network_name,
                     .pubkey = key.string,
                     .slot = slot,
                     .block_time = block_time,
@@ -60,6 +61,7 @@ pub fn processAccountUpdates(indexer: *core.Indexer, slot: u64, block_time: i64,
             const account = account_keys.items[@as(usize, @intCast(acc_idx.integer))].string;
             
             try indexer.db_client.insertAccountActivity(.{
+                .network = network_name,
                 .slot = slot,
                 .block_time = block_time,
                 .pubkey = account,
@@ -82,6 +84,7 @@ pub fn processAccountUpdates(indexer: *core.Indexer, slot: u64, block_time: i64,
                     const account = account_keys.items[@as(usize, @intCast(acc_idx.integer))].string;
                     
                     try indexer.db_client.insertAccountActivity(.{
+                        .network = network_name,
                         .slot = slot,
                         .block_time = block_time,
                         .pubkey = account,

@@ -80,6 +80,7 @@ pub const ProgramExecution = struct {
 };
 
 pub const AccountActivity = struct {
+    network: []const u8,
     pubkey: []const u8,
     slot: u64,
     block_time: i64,

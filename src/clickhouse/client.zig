@@ -204,6 +204,7 @@ pub const ClickHouseClient = struct {
         // Create tables
         try self.executeQuery(
             \\CREATE TABLE IF NOT EXISTS transactions (
+            \\    network String,
             \\    signature String,
             \\    slot UInt64,
             \\    block_time Int64,
@@ -213,11 +214,12 @@ pub const ClickHouseClient = struct {
             \\    compute_units_price UInt64,
             \\    recent_blockhash String
             \\) ENGINE = MergeTree()
-            \\ORDER BY (slot, signature)
+            \\ORDER BY (network, slot, signature)
         );
 
         try self.executeQuery(
             \\CREATE TABLE IF NOT EXISTS program_executions (
+            \\    network String,
             \\    program_id String,
             \\    slot UInt64,
             \\    block_time Int64,
@@ -227,11 +229,12 @@ pub const ClickHouseClient = struct {
             \\    success_count UInt32,
             \\    error_count UInt32
             \\) ENGINE = MergeTree()
-            \\ORDER BY (slot, program_id)
+            \\ORDER BY (network, slot, program_id)
         );
 
         try self.executeQuery(
             \\CREATE TABLE IF NOT EXISTS account_activity (
+            \\    network String,
             \\    pubkey String,
             \\    slot UInt64,
             \\    block_time Int64,
@@ -240,11 +243,12 @@ pub const ClickHouseClient = struct {
             \\    cu_consumed UInt64,
             \\    fee_paid UInt64
             \\) ENGINE = MergeTree()
-            \\ORDER BY (slot, pubkey)
+            \\ORDER BY (network, slot, pubkey)
         );
 
         try self.executeQuery(
             \\CREATE TABLE IF NOT EXISTS instructions (
+            \\    network String,
             \\    signature String,
             \\    slot UInt64,
             \\    block_time Int64,
@@ -254,11 +258,12 @@ pub const ClickHouseClient = struct {
             \\    instruction_type String,
             \\    parsed_data String
             \\) ENGINE = MergeTree()
-            \\ORDER BY (slot, signature, instruction_index)
+            \\ORDER BY (network, slot, signature, instruction_index)
         );
 
         try self.executeQuery(
             \\CREATE TABLE IF NOT EXISTS accounts (
+            \\    network String,
             \\    pubkey String,
             \\    slot UInt64,
             \\    block_time Int64,
@@ -269,11 +274,12 @@ pub const ClickHouseClient = struct {
             \\    data_len UInt64,
             \\    write_version UInt64
             \\) ENGINE = MergeTree()
-            \\ORDER BY (slot, pubkey)
+            \\ORDER BY (network, slot, pubkey)
         );
 
         try self.executeQuery(
             \\CREATE TABLE IF NOT EXISTS account_updates (
+            \\    network String,
             \\    pubkey String,
             \\    slot UInt64,
             \\    block_time Int64,
@@ -284,7 +290,7 @@ pub const ClickHouseClient = struct {
             \\    data_len UInt64,
             \\    write_version UInt64
             \\) ENGINE = MergeTree()
-            \\ORDER BY (slot, pubkey)
+            \\ORDER BY (network, slot, pubkey)
         );
     }
 
@@ -370,9 +376,9 @@ pub const ClickHouseClient = struct {
         return 0;
     }
 
-    pub fn insertTransactionBatch(self: *Self, transactions: []const std.json.Value) !void {
+    pub fn insertTransactionBatch(self: *Self, transactions: []const std.json.Value, network_name: []const u8) !void {
         if (self.logging_only) {
-            std.log.info("Logging-only mode, skipping batch insert of {d} transactions", .{transactions.len});
+            std.log.info("Logging-only mode, skipping batch insert of {d} transactions for network {s}", .{transactions.len, network_name});
             return;
         }
 
@@ -383,7 +389,7 @@ pub const ClickHouseClient = struct {
 
         // Build batch insert query
         var query = std.ArrayList(u8).init(arena.allocator());
-        try query.appendSlice("INSERT INTO transactions (signature, slot, block_time, success, fee, compute_units_consumed, compute_units_price, recent_blockhash) VALUES ");
+        try query.appendSlice("INSERT INTO transactions (network, signature, slot, block_time, success, fee, compute_units_consumed, compute_units_price, recent_blockhash) VALUES ");
 
         for (transactions, 0..) |tx_json, i| {
             const tx = tx_json.object;
@@ -392,6 +398,8 @@ pub const ClickHouseClient = struct {
 
             if (i > 0) try query.appendSlice(",");
             try query.appendSlice("('");
+            try query.appendSlice(network_name);
+            try query.appendSlice("','");
             try query.appendSlice(tx.get("transaction").?.object.get("signatures").?.array.items[0].string);
             try query.appendSlice("',");
             try std.fmt.format(query.writer(), "{d},", .{tx.get("slot").?.integer});
