@@ -21,7 +21,7 @@ const BatchProcessor = struct {
     db_size_after: usize,
     should_stop: bool,
 
-    pub fn init(allocator: std.mem.Allocator, db_client: *clickhouse.ClickHouseClient) !*BatchProcessor {
+    pub fn init(allocator: std.mem.Allocator, db_client: *clickhouse.ClickHouseClient, network_name: []const u8) !*BatchProcessor {
         const processor = try allocator.create(BatchProcessor);
         processor.* = .{
             .allocator = allocator,
@@ -38,6 +38,7 @@ const BatchProcessor = struct {
             .db_size_before = 0,
             .db_size_after = 0,
             .should_stop = false,
+            .network_name = try allocator.dupe(u8, network_name),
         };
 
         // Get initial DB and table sizes
@@ -55,6 +56,7 @@ const BatchProcessor = struct {
 
     pub fn deinit(self: *BatchProcessor) void {
         self.batch.deinit();
+        self.allocator.free(self.network_name);
         self.allocator.destroy(self);
     }
 
@@ -104,7 +106,7 @@ const BatchProcessor = struct {
         self.total_output_size += output_buffer.items.len;
 
         // Insert batch into ClickHouse
-        try self.db_client.insertTransactionBatch(self.batch.items);
+        try self.db_client.insertTransactionBatch(self.batch.items, self.network_name);
 
         // Check if we've reached 10k transactions
         if (self.total_transactions >= 10000) {
@@ -211,12 +213,15 @@ pub fn main() !void {
     // Create tables if they don't exist
     try db_client.createTables();
 
+    // Use mainnet as the default network
+    const network_name = "mainnet";
+
     // Initialize batch processor
-    var processor = try BatchProcessor.init(allocator, &db_client);
+    var processor = try BatchProcessor.init(allocator, &db_client, network_name);
     defer processor.deinit();
 
     // Subscribe to transaction updates
-    try rpc_client.subscribeTransaction(processor, struct {
+    try rpc_client.subscribeTransaction(network_name, processor, struct {
         fn callback(ctx: *anyopaque, _: *WebSocketClient, value: json.Value) void {
             const batch_processor = @as(*BatchProcessor, @alignCast(@ptrCast(ctx)));
 

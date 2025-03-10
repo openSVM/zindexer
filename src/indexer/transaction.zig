@@ -3,7 +3,7 @@ const Allocator = std.mem.Allocator;
 const types = @import("types.zig");
 const core = @import("core.zig");
 
-pub fn processTransaction(indexer: *core.Indexer, slot: u64, block_time: i64, tx_json: std.json.Value) !void {
+pub fn processTransaction(indexer: *core.Indexer, slot: u64, block_time: i64, tx_json: std.json.Value, network_name: []const u8) !void {
     const tx = tx_json.object;
     const meta = tx.get("meta").?.object;
     const message = tx.get("transaction").?.object.get("message").?.object;

@@ -37,6 +37,7 @@ pub const IndexerConfig = struct {
     batch_size: u32 = 20,
     max_retries: u32 = 3,
     retry_delay_ms: u32 = 1000,
+    default_network: []const u8 = "mainnet",
 };
 
 pub const ProcessingStats = struct {
@@ -62,6 +63,7 @@ pub const Indexer = struct {
     stats_callback: ?*const fn (*anyopaque, u64, u64, bool, bool) void,
     stats_ctx: ?*anyopaque,
     logging_only: bool = false,
+    current_network: []const u8,
 
     const Self = @This();
 
@@ -103,6 +105,7 @@ pub const Indexer = struct {
             .stats_callback = null,
             .stats_ctx = null,
             .logging_only = logging_only,
+            .current_network = try allocator.dupe(u8, config.default_network),
         };
     }
 
@@ -110,6 +113,7 @@ pub const Indexer = struct {
         self.running = false;
         self.rpc_client.deinit();
         self.db_client.deinit();
+        self.allocator.free(self.current_network);
 
         // Stats callback context is cleaned up by the caller
         self.stats_ctx = null;
@@ -214,7 +218,7 @@ pub const Indexer = struct {
         std.log.info("Starting from slot {d}", .{ctx.last_slot});
 
         // Subscribe to slot updates
-        self.rpc_client.subscribeSlots(ctx, struct {
+        self.rpc_client.subscribeSlots(self.current_network, ctx, struct {
             fn callback(ctx_ptr: *anyopaque, _: *dependencies.rpc.WebSocketClient, value: json.Value) void {
                 const context = @as(*Context, @alignCast(@ptrCast(ctx_ptr)));
                 const indexer = context.indexer;
@@ -301,7 +305,7 @@ pub const Indexer = struct {
         var fetch_success = false;
 
         while (retries < self.config.max_retries) : (retries += 1) {
-            block_json = self.rpc_client.getBlock(slot) catch |err| {
+            block_json = self.rpc_client.getBlock(self.current_network, slot) catch |err| {
                 std.log.warn("Failed to fetch block {d} (attempt {d}/{d}): {any}", .{ slot, retries + 1, self.config.max_retries, err });
                 if (retries + 1 < self.config.max_retries) {
                     std.time.sleep(self.config.retry_delay_ms * std.time.ns_per_ms);
@@ -347,17 +351,17 @@ pub const Indexer = struct {
 
             // Only process database operations if not in logging-only mode
             if (!self.logging_only) {
-                transaction.processTransaction(self, slot, block.block_time orelse 0, tx_json) catch |err| {
+                transaction.processTransaction(self, slot, block.block_time orelse 0, tx_json, self.current_network) catch |err| {
                     std.log.err("Failed to process transaction in slot {d}: {any}", .{ slot, err });
                     continue;
                 };
 
-                instruction.processInstructions(self, slot, block.block_time orelse 0, tx_json) catch |err| {
+                instruction.processInstructions(self, slot, block.block_time orelse 0, tx_json, self.current_network) catch |err| {
                     std.log.err("Failed to process instructions in slot {d}: {any}", .{ slot, err });
                     continue;
                 };
 
-                account.processAccountUpdates(self, slot, block.block_time orelse 0, tx_json) catch |err| {
+                account.processAccountUpdates(self, slot, block.block_time orelse 0, tx_json, self.current_network) catch |err| {
                     std.log.err("Failed to process account updates in slot {d}: {any}", .{ slot, err });
                     continue;
                 };
