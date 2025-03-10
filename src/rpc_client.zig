@@ -93,11 +93,9 @@ pub const Network = struct {
 
 pub const RpcClient = struct {
     allocator: Allocator,
-    rpc_nodes: []NodeConfig,
-    wss_nodes: []NodeConfig,
-    current_node_index: usize,
+    networks: std.StringHashMap(*Network),
     http_client: HttpClient,
-    ws_client: WebSocketClient,
+    ws_clients: std.StringHashMap(*WebSocketClient),
 
     pub fn initFromFiles(allocator: Allocator, rpc_nodes_file: []const u8, wss_nodes_file: []const u8) !Self {
         // Load RPC nodes

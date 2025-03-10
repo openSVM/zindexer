@@ -20,6 +20,7 @@ const BatchProcessor = struct {
     db_size_before: usize,
     db_size_after: usize,
     should_stop: bool,
+    network_name: []const u8,
 
     pub fn init(allocator: std.mem.Allocator, db_client: *clickhouse.ClickHouseClient, network_name: []const u8) !*BatchProcessor {
         const processor = try allocator.create(BatchProcessor);
