@@ -8,9 +8,9 @@ pub fn insertAccount(self: anytype, data: anytype) !void {
     
     const query = try std.fmt.allocPrint(arena.allocator(),
         \\INSERT INTO accounts
-        \\VALUES ('{s}', {}, {}, '{s}', {}, {}, {}, {}, {})
+        \\VALUES ('{s}', '{s}', {}, {}, '{s}', {}, {}, {}, {}, {})
     , .{
-        data.pubkey, data.slot, data.block_time,
+        data.network, data.pubkey, data.slot, data.block_time,
         data.owner, data.lamports, data.executable,
         data.rent_epoch, data.data_len,
         data.write_version,
@@ -25,9 +25,9 @@ pub fn insertAccountActivity(self: anytype, data: anytype) !void {
     
     const query = try std.fmt.allocPrint(arena.allocator(),
         \\INSERT INTO account_activity
-        \\VALUES ('{s}', {}, {}, '{s}', {}, {}, {})
+        \\VALUES ('{s}', '{s}', {}, {}, '{s}', {}, {}, {})
     , .{
-        data.pubkey, data.slot, data.block_time,
+        data.network, data.pubkey, data.slot, data.block_time,
         data.program_id, data.write_count,
         data.cu_consumed, data.fee_paid,
     });

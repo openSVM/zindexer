@@ -90,7 +90,7 @@ pub const Indexer = struct {
         errdefer rpc_client.deinit();
 
         // Get current slot from RPC
-        const current_slot = try rpc_client.getSlot();
+        const current_slot = try rpc_client.getSlot(config.default_network);
 
         return Self{
             .allocator = allocator,
@@ -195,7 +195,7 @@ pub const Indexer = struct {
                 };
 
                 // Get initial slot after struct is fully initialized
-                ctx.last_slot = indexer.rpc_client.getSlot() catch |err| {
+                ctx.last_slot = indexer.rpc_client.getSlot(indexer.current_network) catch |err| {
                     std.log.err("Failed to get initial slot: {any}", .{err});
                     return err;
                 };

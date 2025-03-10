@@ -35,6 +35,7 @@ pub fn processAccountUpdates(indexer: *core.Indexer, slot: u64, block_time: i64,
             // Insert account data if balance changed
             if (pre_balance != post_balance) {
                 try indexer.db_client.insertAccount(.{
+                    .network = network_name,
                     .pubkey = key.string,
                     .slot = slot,
                     .block_time = block_time,

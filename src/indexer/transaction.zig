@@ -64,6 +64,7 @@ pub fn processTransaction(indexer: *core.Indexer, slot: u64, block_time: i64, tx
     
     // Insert transaction data
     try indexer.db_client.insertTransaction(.{
+        .network = network_name,
         .signature = tx.get("transaction").?.object.get("signatures").?.array.items[0].string,
         .slot = slot,
         .block_time = block_time,
@@ -90,6 +91,7 @@ pub fn processTransaction(indexer: *core.Indexer, slot: u64, block_time: i64, tx
     
     for (program_ids.items) |program_id| {
         try indexer.db_client.insertProgramExecution(.{
+            .network = network_name,
             .program_id = program_id,
             .slot = slot,
             .block_time = block_time,
