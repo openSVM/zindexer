@@ -213,38 +213,81 @@ pub fn main() !void {
     // Create tables if they don't exist
     try db_client.createTables();
 
-    // Use mainnet as the default network
-    const network_name = "mainnet";
-
-    // Initialize batch processor
-    var processor = try BatchProcessor.init(allocator, &db_client, network_name);
-    defer processor.deinit();
-
-    // Subscribe to transaction updates
-    try rpc_client.subscribeTransaction(network_name, processor, struct {
-        fn callback(ctx: *anyopaque, _: *WebSocketClient, value: json.Value) void {
-            const batch_processor = @as(*BatchProcessor, @alignCast(@ptrCast(ctx)));
-
-            // Stop if we've processed 10k transactions
-            if (batch_processor.should_stop) {
-                return;
-            }
-
-            // Process transaction
-            _ = batch_processor.addTransaction(value) catch |err| {
-                std.log.err("Failed to process transaction: {any}", .{err});
-                return;
-            };
+    // Get all available networks
+    const networks = try rpc_client.getNetworkNames(allocator);
+    defer {
+        for (networks) |name| {
+            allocator.free(name);
         }
-    }.callback);
+        allocator.free(networks);
+    }
 
-    // Wait until we've processed 10k transactions
-    while (!processor.should_stop) {
+    // Create a batch processor for each network
+    var processors = std.ArrayList(*BatchProcessor).init(allocator);
+    defer {
+        for (processors.items) |processor| {
+            processor.deinit();
+        }
+        processors.deinit();
+    }
+
+    // Initialize batch processors for each network
+    for (networks) |network_name| {
+        std.log.info("Initializing processor for network: {s}", .{network_name});
+        const processor = try BatchProcessor.init(allocator, &db_client, network_name);
+        try processors.append(processor);
+    }
+
+    // Subscribe to transaction updates for each network
+    for (processors.items) |processor| {
+        std.log.info("Subscribing to transactions for network: {s}", .{processor.network_name});
+        try rpc_client.subscribeTransaction(processor.network_name, processor, struct {
+            fn callback(ctx: *anyopaque, _: *WebSocketClient, value: json.Value) void {
+                const batch_processor = @as(*BatchProcessor, @alignCast(@ptrCast(ctx)));
+
+                // Stop if we've processed 10k transactions
+                if (batch_processor.should_stop) {
+                    return;
+                }
+
+                // Process transaction
+                _ = batch_processor.addTransaction(value) catch |err| {
+                    std.log.err("Failed to process transaction on network {s}: {any}", .{batch_processor.network_name, err});
+                    return;
+                };
+            }
+        }.callback);
+    }
+
+    // Wait until all processors have processed 10k transactions or timeout after 5 minutes
+    const start_time = std.time.timestamp();
+    const timeout = 5 * 60; // 5 minutes in seconds
+    
+    while (true) {
+        // Check if all processors are done
+        var all_done = true;
+        for (processors.items) |processor| {
+            if (!processor.should_stop) {
+                all_done = false;
+                break;
+            }
+        }
+        
+        if (all_done) break;
+        
+        // Check for timeout
+        if (std.time.timestamp() - start_time > timeout) {
+            std.log.warn("Timeout reached after {d} seconds", .{timeout});
+            break;
+        }
+        
         std.time.sleep(100 * std.time.ns_per_ms);
     }
 
-    // Generate and print report
-    const report = try processor.generateReport();
-    defer allocator.free(report);
-    std.debug.print("\n{s}\n", .{report});
+    // Generate and print reports for each network
+    for (processors.items) |processor| {
+        const report = try processor.generateReport();
+        defer allocator.free(report);
+        std.debug.print("\n{s}\n", .{report});
+    }
 }

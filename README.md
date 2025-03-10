@@ -1,127 +1,196 @@
-# OpenSVM: High-Performance Solana Validator Monitor
+# Zindexer: Multi-Network Solana Validator Monitor
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)
 ![Language](https://img.shields.io/badge/language-Zig-orange.svg)
 
-A blazingly fast, memory-efficient Solana validator monitoring system written in Zig. Designed for high-throughput, low-latency block ingestion and real-time analytics.
+A high-performance, memory-efficient Solana validator monitoring system written in Zig. Designed for high-throughput, low-latency block ingestion and real-time analytics across multiple Solana Virtual Machine (SVM) networks simultaneously.
 
-## 🚀 Performance Benchmarks
+## Features
 
-| Metric | Performance |
-|--------|------------|
-| Block Ingestion Rate | 25,000+ blocks/sec |
-| Memory Usage | < 50MB base, ~2MB/million slots |
-| CPU Usage | < 2% on single core |
-| Latency | < 0.5ms p99 |
-| WebSocket Reconnection | < 10ms |
-| Concurrent Connections | 10,000+ |
+- 🌐 **Multi-Network Support**: Simultaneously index and monitor multiple Solana networks (Mainnet, Devnet, Testnet)
+- 🔄 **Real-time Data Processing**: Stream transactions, blocks, and account updates in real-time
+- 📊 **Comprehensive Indexing**: Track transactions, instructions, account changes, token transfers, and more
+- 💾 **ClickHouse Integration**: Store and analyze data using the high-performance ClickHouse database
+- 🔍 **DeFi & NFT Tracking**: Specialized indexing for DeFi protocols and NFT marketplaces
+- 🛡️ **Security Monitoring**: Detect suspicious activities and potential security threats
+- ⚡ **High Performance**: Zero-copy parsing and efficient memory management for blazing-fast indexing
 
-## ✨ Features
+## Architecture
 
-- 🔥 Zero-copy block parsing
-- 🔄 Automatic WebSocket reconnection with exponential backoff
-- 🔒 TLS/WSS support with certificate verification
-- 📊 Real-time slot monitoring
-- 💾 ClickHouse integration for analytics
-- 🎯 Zero-allocation hot path
-- 🛡️ Memory-safe implementation
-- 📈 Built-in performance metrics
-
-## 🛠 Installation
-
-```bash
-git clone https://github.com/yourusername/opensvm.git
-cd opensvm
-zig build -Drelease-fast
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│                 │     │                 │     │                 │
+│  Solana Network │     │  Solana Network │     │  Solana Network │
+│    (Mainnet)    │     │    (Devnet)     │     │    (Testnet)    │
+│                 │     │                 │     │                 │
+└────────┬────────┘     └────────┬────────┘     └────────┬────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│                        WebSocket Clients                        │
+│                                                                 │
+└────────────────────────────────┬────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│                         Parser Engine                           │
+│                                                                 │
+└────────────────────────────────┬────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│                       ClickHouse Storage                        │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-## 🚦 Quick Start
+## Data Model
+
+Zindexer stores the following data types:
+
+1. **Blocks**: Basic block information including slot, blockhash, leader, etc.
+2. **Transactions**: Transaction details including signatures, status, fees, etc.
+3. **Instructions**: Program instructions with program IDs and parsed data
+4. **Accounts**: Account state changes and balance updates
+5. **Tokens**: Token transfers, mints, burns, and balance changes
+6. **NFTs**: NFT mints, transfers, sales, and metadata
+7. **DeFi**: Protocol-specific events for various DeFi platforms
+8. **Security**: Suspicious activities and potential security threats
+
+## Getting Started
+
+### Prerequisites
+
+- Zig 0.11.0 or later
+- ClickHouse server (local or remote)
+- Access to Solana RPC nodes
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/zindexer.git
+   cd zindexer
+   ```
+
+2. Build the project:
+   ```bash
+   zig build -Drelease-fast
+   ```
+
+3. Configure your RPC nodes:
+   - Edit `src/rpc_nodes.json` to add your RPC endpoints
+   - Edit `src/ws_nodes.json` to add your WebSocket endpoints
+
+4. Set up ClickHouse:
+   ```bash
+   ./scripts/apply_schema.sh
+   ```
+
+### Running the Indexer
 
 ```bash
-# Set environment variables
-export SOLANA_RPC_WS="wss://your-rpc-endpoint"
+# Set environment variables (optional)
 export CLICKHOUSE_URL="http://localhost:8123"
+export CLICKHOUSE_USER="default"
+export CLICKHOUSE_PASS=""
+export CLICKHOUSE_DB="solana"
 
 # Run the indexer
-./zig-out/bin/solana-indexer
+./zig-out/bin/zindexer
 ```
 
-## 🔧 Configuration
+## Configuration
 
-| Environment Variable | Description | Default |
-|---------------------|-------------|---------|
-| SOLANA_RPC_WS | WebSocket RPC endpoint | - |
-| CLICKHOUSE_URL | ClickHouse connection URL | http://localhost:8123 |
-| CLICKHOUSE_USER | ClickHouse username | default |
-| CLICKHOUSE_PASS | ClickHouse password | - |
-| CLICKHOUSE_DB | ClickHouse database | default |
+### RPC Nodes Configuration
 
-## 📊 Architecture
+The `rpc_nodes.json` file defines the HTTP RPC endpoints for each network:
 
+```json
+{
+  "networks": [
+    {
+      "name": "mainnet",
+      "nodes": [
+        "https://api.mainnet-beta.solana.com",
+        "https://solana-api.projectserum.com"
+      ]
+    },
+    {
+      "name": "devnet",
+      "nodes": [
+        "https://api.devnet.solana.com"
+      ]
+    }
+  ]
+}
 ```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   WebSocket  │ --> │    Parser    │ --> │  ClickHouse  │
-│   Client     │     │    Engine    │     │   Storage    │
-└──────────────┘     └──────────────┘     └──────────────┘
-       ↑                    ↑                    ↑
-       │                    │                    │
-       └── Zero Copy ───────┴── Zero Alloc ─────┘
+
+### WebSocket Nodes Configuration
+
+The `ws_nodes.json` file defines the WebSocket endpoints for each network:
+
+```json
+{
+  "networks": [
+    {
+      "name": "mainnet",
+      "nodes": [
+        "wss://api.mainnet-beta.solana.com",
+        "wss://solana-api.projectserum.com"
+      ]
+    },
+    {
+      "name": "devnet",
+      "nodes": [
+        "wss://api.devnet.solana.com"
+      ]
+    }
+  ]
+}
 ```
 
-## 💫 Advanced Features
+## Database Schema
 
-### Zero-Copy Block Processing
-The system uses Zig's comptime features to generate zero-copy parsers, allowing direct processing of network buffers without intermediate allocations.
+Zindexer creates the following tables in ClickHouse:
 
-### Memory Management
-- Preallocated buffer pools
-- Arena allocators for batch processing
-- Comptime memory optimization
-- Zero heap allocations in hot paths
+- `blocks`: Block-level information
+- `transactions`: Transaction details
+- `instructions`: Program instructions
+- `accounts`: Account state changes
+- `program_executions`: Program execution statistics
+- `account_activity`: Account activity metrics
+- Various token, NFT, and DeFi-specific tables
 
-### Error Handling
-- Automatic reconnection with exponential backoff
-- Comprehensive error reporting
-- Graceful degradation under load
-- Self-healing connection management
-
-## 🔍 Monitoring
-
-Built-in metrics available at `/metrics`:
-- Block processing latency
-- Memory usage
-- WebSocket connection status
-- Parse errors
-- System health
-
-## 🎯 Use Cases
+## Use Cases
 
 1. **Validator Monitoring**
-   - Real-time slot tracking
-   - Fork detection
-   - Performance analysis
+   - Track validator performance across multiple networks
+   - Monitor block production and transaction processing
+   - Analyze network health and performance
 
-2. **Network Analysis**
-   - Block propagation metrics
-   - Network health monitoring
-   - Consensus participation tracking
+2. **DeFi Analytics**
+   - Track liquidity and volume across DEXes
+   - Monitor lending protocols and yield farms
+   - Analyze token flows and price movements
 
-3. **Performance Testing**
-   - TPS benchmarking
-   - Latency analysis
-   - Resource utilization tracking
+3. **NFT Market Analysis**
+   - Track NFT sales and transfers
+   - Monitor marketplace activity
+   - Analyze collection performance
 
-## 🤝 Contributing
+4. **Security Monitoring**
+   - Detect suspicious transactions
+   - Monitor for potential exploits
+   - Track large fund movements
+
+## Contributing
 
 Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
-## 📝 License
+## License
 
-This project is licensed under strict territorial restrictions - see the [LICENSE](LICENSE) file for details.
-
-## 🌟 Acknowledgments
-
-- Solana Labs for the amazing blockchain platform
-- ClickHouse team for the high-performance analytics database
-- Zig language team for the powerful systems programming language
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
