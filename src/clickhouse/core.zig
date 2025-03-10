@@ -108,9 +108,9 @@ pub fn insertBlockMetrics(self: anytype, data: anytype) !void {
     
     const query = try std.fmt.allocPrint(arena.allocator(),
         \\INSERT INTO block_metrics
-        \\VALUES ({}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+        \\VALUES ('{s}', {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
     , .{
-        data.slot, data.block_time,
+        data.network, data.slot, data.block_time,
         data.transaction_count, data.successful_transactions,
         data.total_compute_units, data.total_fees,
         data.unique_signers, data.unique_programs,

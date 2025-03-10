@@ -24,6 +24,7 @@ pub const RpcError = error{
     TlsError,
     RateLimitExceeded,
     AuthenticationError,
+    NetworkNotFound,
 };
 
 const NodeConfig = struct {
@@ -51,6 +52,45 @@ const NodeConfig = struct {
     }
 };
 
+pub const Network = struct {
+    name: []const u8,
+    rpc_nodes: []NodeConfig,
+    wss_nodes: []NodeConfig,
+    current_rpc_index: usize,
+    current_wss_index: usize,
+    
+    pub fn init(allocator: Allocator, name: []const u8, rpc_nodes: []NodeConfig, wss_nodes: []NodeConfig) !*Network {
+        const network = try allocator.create(Network);
+        network.* = .{
+            .name = try allocator.dupe(u8, name),
+            .rpc_nodes = rpc_nodes,
+            .wss_nodes = wss_nodes,
+            .current_rpc_index = 0,
+            .current_wss_index = 0,
+        };
+        return network;
+    }
+    
+    pub fn deinit(self: *Network, allocator: Allocator) void {
+        allocator.free(self.name);
+        allocator.destroy(self);
+    }
+    
+    pub fn getNextRpcNode(self: *Network) !NodeConfig {
+        if (self.rpc_nodes.len == 0) return RpcError.NodesNotFound;
+        const node = self.rpc_nodes[self.current_rpc_index];
+        self.current_rpc_index = (self.current_rpc_index + 1) % self.rpc_nodes.len;
+        return node;
+    }
+    
+    pub fn getNextWsNode(self: *Network) !NodeConfig {
+        if (self.wss_nodes.len == 0) return RpcError.NodesNotFound;
+        const node = self.wss_nodes[self.current_wss_index];
+        self.current_wss_index = (self.current_wss_index + 1) % self.wss_nodes.len;
+        return node;
+    }
+};
+
 pub const RpcClient = struct {
     allocator: Allocator,
     rpc_nodes: []NodeConfig,
@@ -67,8 +107,7 @@ pub const RpcClient = struct {
         defer allocator.free(rpc_content);
         var rpc_parsed = try json.parseFromSlice(json.Value, allocator, rpc_content, .{});
         defer rpc_parsed.deinit();
-        const rpc_nodes_json = rpc_parsed.value.object.get("nodes").?.array;
-
+        
         // Load WebSocket nodes
         const wss_file = try fs.cwd().openFile(wss_nodes_file, .{});
         defer wss_file.close();
@@ -76,37 +115,84 @@ pub const RpcClient = struct {
         defer allocator.free(wss_content);
         var wss_parsed = try json.parseFromSlice(json.Value, allocator, wss_content, .{});
         defer wss_parsed.deinit();
-        const wss_nodes_json = wss_parsed.value.object.get("nodes").?.array;
-
-        // Create node configs
-        var rpc_nodes = try allocator.alloc(NodeConfig, rpc_nodes_json.items.len);
-        errdefer allocator.free(rpc_nodes);
-
-        var wss_nodes = try allocator.alloc(NodeConfig, wss_nodes_json.items.len);
-        errdefer allocator.free(wss_nodes);
-
-        for (rpc_nodes_json.items, 0..) |node, i| {
-            rpc_nodes[i] = try NodeConfig.init(node.string);
-        }
-
-        for (wss_nodes_json.items, 0..) |node, i| {
-            wss_nodes[i] = try NodeConfig.init(node.string);
-        }
-
-        // Initialize clients
+        
+        // Initialize HTTP client
         var http_client = try HttpClient.init(allocator, .{});
         errdefer http_client.deinit();
-
-        var ws_client = WebSocketClient.init(allocator);
-        errdefer ws_client.deinit();
-
+        
+        // Initialize networks map
+        var networks = std.StringHashMap(*Network).init(allocator);
+        errdefer {
+            var it = networks.iterator();
+            while (it.next()) |entry| {
+                entry.value_ptr.*.deinit(allocator);
+            }
+            networks.deinit();
+        }
+        
+        // Initialize WebSocket clients map
+        var ws_clients = std.StringHashMap(*WebSocketClient).init(allocator);
+        errdefer {
+            var it = ws_clients.iterator();
+            while (it.next()) |entry| {
+                entry.value_ptr.*.deinit();
+                allocator.destroy(entry.value_ptr.*);
+            }
+            ws_clients.deinit();
+        }
+        
+        // Process each network
+        const rpc_networks = rpc_parsed.value.object.get("networks").?.array;
+        const wss_networks = wss_parsed.value.object.get("networks").?.array;
+        
+        for (rpc_networks.items) |rpc_network| {
+            const network_name = rpc_network.object.get("name").?.string;
+            const rpc_nodes_json = rpc_network.object.get("nodes").?.array;
+            
+            // Find matching WebSocket network
+            var wss_nodes_json: ?json.Array = null;
+            for (wss_networks.items) |wss_network| {
+                if (std.mem.eql(u8, wss_network.object.get("name").?.string, network_name)) {
+                    wss_nodes_json = wss_network.object.get("nodes").?.array;
+                    break;
+                }
+            }
+            
+            if (wss_nodes_json == null) {
+                std.log.warn("No WebSocket nodes found for network: {s}", .{network_name});
+                continue;
+            }
+            
+            // Create node configs
+            var rpc_nodes = try allocator.alloc(NodeConfig, rpc_nodes_json.items.len);
+            errdefer allocator.free(rpc_nodes);
+            
+            var wss_nodes = try allocator.alloc(NodeConfig, wss_nodes_json.?.items.len);
+            errdefer allocator.free(wss_nodes);
+            
+            for (rpc_nodes_json.items, 0..) |node, i| {
+                rpc_nodes[i] = try NodeConfig.init(node.string);
+            }
+            
+            for (wss_nodes_json.?.items, 0..) |node, i| {
+                wss_nodes[i] = try NodeConfig.init(node.string);
+            }
+            
+            // Create network
+            const network = try Network.init(allocator, network_name, rpc_nodes, wss_nodes);
+            try networks.put(network_name, network);
+            
+            // Create WebSocket client for this network
+            var ws_client = try allocator.create(WebSocketClient);
+            ws_client.* = WebSocketClient.init(allocator);
+            try ws_clients.put(network_name, ws_client);
+        }
+        
         return Self{
             .allocator = allocator,
-            .rpc_nodes = rpc_nodes,
-            .wss_nodes = wss_nodes,
-            .current_node_index = 0,
+            .networks = networks,
             .http_client = http_client,
-            .ws_client = ws_client,
+            .ws_clients = ws_clients,
         };
     }
 
@@ -120,62 +206,88 @@ pub const RpcClient = struct {
 
         var http_client = try HttpClient.init(allocator, .{});
         errdefer http_client.deinit();
-
-        var ws_client = WebSocketClient.init(allocator);
-        errdefer ws_client.deinit();
+        
+        // Initialize networks map
+        var networks = std.StringHashMap(*Network).init(allocator);
+        
+        // Create default network
+        const network = try Network.init(allocator, "default", rpc_nodes, wss_nodes);
+        try networks.put("default", network);
+        
+        // Initialize WebSocket clients map
+        var ws_clients = std.StringHashMap(*WebSocketClient).init(allocator);
+        
+        // Create WebSocket client for default network
+        var ws_client = try allocator.create(WebSocketClient);
+        ws_client.* = WebSocketClient.init(allocator);
+        try ws_clients.put("default", ws_client);
 
         return Self{
             .allocator = allocator,
-            .rpc_nodes = rpc_nodes,
-            .wss_nodes = wss_nodes,
-            .current_node_index = 0,
+            .networks = networks,
             .http_client = http_client,
-            .ws_client = ws_client,
+            .ws_clients = ws_clients,
         };
     }
 
     pub fn deinit(self: *Self) void {
         self.http_client.deinit();
-        self.ws_client.deinit();
-        self.allocator.free(self.rpc_nodes);
-        self.allocator.free(self.wss_nodes);
+        
+        // Deinit all WebSocket clients
+        var ws_it = self.ws_clients.iterator();
+        while (ws_it.next()) |entry| {
+            entry.value_ptr.*.deinit();
+            self.allocator.destroy(entry.value_ptr.*);
+        }
+        self.ws_clients.deinit();
+        
+        // Deinit all networks
+        var net_it = self.networks.iterator();
+        while (net_it.next()) |entry| {
+            self.allocator.free(entry.value_ptr.*.rpc_nodes);
+            self.allocator.free(entry.value_ptr.*.wss_nodes);
+            entry.value_ptr.*.deinit(self.allocator);
+        }
+        self.networks.deinit();
     }
 
-    fn getNextNode(self: *Self) !NodeConfig {
-        if (self.rpc_nodes.len == 0) return RpcError.NodesNotFound;
-        const node = self.rpc_nodes[self.current_node_index];
-        self.current_node_index = (self.current_node_index + 1) % self.rpc_nodes.len;
-        return node;
+    pub fn getNetwork(self: *Self, network_name: []const u8) !*Network {
+        return self.networks.get(network_name) orelse return RpcError.NetworkNotFound;
     }
 
-    fn getNextWsNode(self: *Self) !NodeConfig {
-        if (self.wss_nodes.len == 0) return RpcError.NodesNotFound;
-        const node = self.wss_nodes[self.current_node_index];
-        self.current_node_index = (self.current_node_index + 1) % self.wss_nodes.len;
-        return node;
+    pub fn getWebSocketClient(self: *Self, network_name: []const u8) !*WebSocketClient {
+        return self.ws_clients.get(network_name) orelse return RpcError.NetworkNotFound;
     }
 
-    pub fn subscribeSlots(self: *Self, ctx: anytype, callback: WebSocketClient.Callback) !void {
-        const node = try self.getNextWsNode();
-        try self.ws_client.connect(node);
-        try self.ws_client.subscribe(ctx, callback, "slotSubscribe");
+    pub fn subscribeSlots(self: *Self, network_name: []const u8, ctx: anytype, callback: WebSocketClient.Callback) !void {
+        const network = try self.getNetwork(network_name);
+        var ws_client = try self.getWebSocketClient(network_name);
+        
+        const node = try network.getNextWsNode();
+        try ws_client.connect(node);
+        try ws_client.subscribe(ctx, callback, "slotSubscribe");
     }
 
-    pub fn subscribeTransaction(self: *Self, ctx: anytype, callback: WebSocketClient.Callback) !void {
-        const node = try self.getNextWsNode();
-        try self.ws_client.connect(node);
-        try self.ws_client.subscribe(ctx, callback, "transactionSubscribe");
+    pub fn subscribeTransaction(self: *Self, network_name: []const u8, ctx: anytype, callback: WebSocketClient.Callback) !void {
+        const network = try self.getNetwork(network_name);
+        var ws_client = try self.getWebSocketClient(network_name);
+        
+        const node = try network.getNextWsNode();
+        try ws_client.connect(node);
+        try ws_client.subscribe(ctx, callback, "transactionSubscribe");
     }
 
-    pub fn getSlot(self: *Self) !u64 {
+    pub fn getSlot(self: *Self, network_name: []const u8) !u64 {
+        const network = try self.getNetwork(network_name);
         const params = "[]";
-        const node = try self.getNextNode();
+        const node = try network.getNextRpcNode();
         const response = try self.http_client.sendRequest(node, "getSlot", params);
         const result = response.object.get("result") orelse return RpcError.InvalidResponse;
         return @intCast(result.integer);
     }
 
-    pub fn getBlock(self: *Self, slot: u64) !json.Value {
+    pub fn getBlock(self: *Self, network_name: []const u8, slot: u64) !json.Value {
+        const network = try self.getNetwork(network_name);
         const params = try std.fmt.allocPrint(
             self.allocator,
             "[{d}, {{\"encoding\": \"json\", \"maxSupportedTransactionVersion\": 0, \"transactionDetails\": \"full\", \"rewards\": false}}]",
@@ -183,10 +295,27 @@ pub const RpcClient = struct {
         );
         defer self.allocator.free(params);
 
-        const node = try self.getNextNode();
+        const node = try network.getNextRpcNode();
         const response = try self.http_client.sendRequest(node, "getBlock", params);
         const result = response.object.get("result") orelse return RpcError.BlockNotFound;
         return result;
+    }
+
+    pub fn getNetworkNames(self: *Self, allocator: Allocator) ![][]const u8 {
+        var names = std.ArrayList([]const u8).init(allocator);
+        errdefer {
+            for (names.items) |name| {
+                allocator.free(name);
+            }
+            names.deinit();
+        }
+        
+        var it = self.networks.keyIterator();
+        while (it.next()) |key| {
+            try names.append(try allocator.dupe(u8, key.*));
+        }
+        
+        return names.toOwnedSlice();
     }
 
     const Self = @This();

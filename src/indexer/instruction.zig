@@ -84,6 +84,7 @@ pub fn processInstructions(indexer: *core.Indexer, slot: u64, block_time: i64, t
                 }
                 
                 try indexer.db_client.insertInstruction(.{
+                    .network = network_name,
                     .signature = signature,
                     .slot = slot,
                     .block_time = block_time,

@@ -104,6 +104,7 @@ pub fn processTransaction(indexer: *core.Indexer, slot: u64, block_time: i64, tx
     // Update account activity
     for (account_keys.items) |account| {
         try indexer.db_client.insertAccountActivity(.{
+            .network = network_name,
             .pubkey = account,
             .slot = slot,
             .block_time = block_time,

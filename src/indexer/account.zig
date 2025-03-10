@@ -82,6 +82,7 @@ pub fn processAccountUpdates(indexer: *core.Indexer, slot: u64, block_time: i64,
                     const account = account_keys.items[@as(usize, @intCast(acc_idx.integer))].string;
                     
                     try indexer.db_client.insertAccountActivity(.{
+                        .network = network_name,
                         .slot = slot,
                         .block_time = block_time,
                         .pubkey = account,
