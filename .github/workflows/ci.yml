@@ -45,7 +45,7 @@ jobs:
         run: zig build test -Doptimize=ReleaseFast
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@3.0
         with:
           name: zindexer-${{ runner.os }}
           path: zig-out/bin/zindexer
