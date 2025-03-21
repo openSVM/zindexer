@@ -60,7 +60,7 @@ pub const Indexer = struct {
     running: bool,
     total_slots_processed: u64,
     stats: ProcessingStats = .{},
-    stats_callback: ?*const fn (*anyopaque, u64, u64, bool, bool) void,
+    stats_callback: ?*const fn (*anyopaque, []const u8, u64, u64, bool, bool) void,
     stats_ctx: ?*anyopaque,
     logging_only: bool = false,
     current_network: []const u8,
@@ -120,7 +120,7 @@ pub const Indexer = struct {
         self.stats_callback = null;
     }
 
-    pub fn setStatsCallback(self: *Self, callback: *const fn (*anyopaque, u64, u64, bool, bool) void, ctx: anytype) void {
+    pub fn setStatsCallback(self: *Self, callback: *const fn (*anyopaque, []const u8, u64, u64, bool, bool) void, ctx: anytype) void {
         const T = @TypeOf(ctx);
         const ptr = self.allocator.create(T) catch return;
         ptr.* = ctx;
