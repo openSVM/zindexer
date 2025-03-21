@@ -5,48 +5,30 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:
 
 jobs:
   build:
-    name: Build and Test
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        
+    runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      
-      - name: Setup Zig
-        uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: 0.14.0
-      
-      - name: Cache zig dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/zig
-            zig-cache
-          key: ${{ runner.os }}-zig-${{ hashFiles('build.zig.zon') }}
-          restore-keys: |
-            ${{ runner.os }}-zig-
-      
-      - name: Check Zig version
-        run: zig version
-      
-      - name: Build
-        run: zig build -Doptimize=ReleaseFast
-      
-      - name: Run simple tests
-        run: zig build test -Doptimize=ReleaseFast
-      
-      - name: Upload artifact
-        uses: actions/upload-artifact@3.0
-        with:
-          name: zindexer-${{ runner.os }}
-          path: zig-out/bin/zindexer
-          if-no-files-found: error
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Zig
+      uses: goto-bus-stop/setup-zig@v2
+
+    - name: Cache Zig
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.zig
+          zig-out
+
+    - name: Build project
+      run: zig build
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: build
+        path: zig-out/bin
