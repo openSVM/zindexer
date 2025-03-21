@@ -35,7 +35,7 @@ const NodeConfig = struct {
 
     pub fn init(endpoint: []const u8) !NodeConfig {
         const uri = try Uri.parse(endpoint);
-        const host = uri.host.?;
+        const host = uri.host orelse return error.InvalidUrl;
         const path = uri.path;
         return NodeConfig{
             .uri = uri,

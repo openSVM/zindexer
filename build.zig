@@ -5,25 +5,25 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     // Create modules with explicit dependencies
-    const rpc_module = b.addModule("rpc", .{
+    const rpc_mod = b.addModule("rpc", .{
         .source_file = .{ .path = "src/rpc.zig" },
     });
 
-    const clickhouse_module = b.addModule("clickhouse", .{
+    const clickhouse_mod = b.addModule("clickhouse", .{
         .source_file = .{ .path = "src/clickhouse.zig" },
     });
 
-    const indexer_module = b.addModule("indexer", .{
+    const indexer_mod = b.addModule("indexer", .{
         .source_file = .{ .path = "src/indexer.zig" },
         .dependencies = &.{
-            .{ .name = "rpc", .module = rpc_module },
-            .{ .name = "clickhouse", .module = clickhouse_module },
+            .{ .name = "rpc", .module = rpc_mod },
+            .{ .name = "clickhouse", .module = clickhouse_mod },
         },
     });
 
     // Create executable with optimized settings
     const exe = b.addExecutable(.{
-        .name = "solana-indexer",
+        .name = "zindexer",
         .root_source_file = .{ .path = "src/main.zig" },
         .target = target,
         // Force ReleaseSafe for faster builds while maintaining safety
@@ -37,15 +37,15 @@ pub fn build(b: *std.Build) void {
     });
 
     // Add module dependencies
-    exe.addModule("indexer", indexer_module);
-    exe.addModule("rpc", rpc_module);
-    exe.addModule("clickhouse", clickhouse_module);
+    exe.addModule("indexer", indexer_mod);
+    exe.addModule("rpc", rpc_mod);
+    exe.addModule("clickhouse", clickhouse_mod);
 
     // Link system libraries
     exe.linkLibC();
 
     // Set SDK path for macOS
-    if (target.os_tag == .macos) {
+    if (target.getOsTag() == .macos) {
         exe.addSystemIncludePath(.{ .path = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include" });
         exe.addLibraryPath(.{ .path = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/lib" });
     }
@@ -63,7 +63,7 @@ pub fn build(b: *std.Build) void {
         run_cmd.addArgs(args);
     }
 
-    const run_step = b.step("run", "Run the Solana indexer");
+    const run_step = b.step("run", "Run the ZIndexer");
     run_step.dependOn(&run_cmd.step);
 
     // Create test step with optimized settings
@@ -82,15 +82,15 @@ pub fn build(b: *std.Build) void {
     });
 
     // Add module dependencies to tests
-    main_tests.addModule("indexer", indexer_module);
-    main_tests.addModule("rpc", rpc_module);
-    main_tests.addModule("clickhouse", clickhouse_module);
+    main_tests.addModule("indexer", indexer_mod);
+    main_tests.addModule("rpc", rpc_mod);
+    main_tests.addModule("clickhouse", clickhouse_mod);
     main_tests.linkLibC();
     main_tests.want_lto = false;
 
-    realtime_tests.addModule("indexer", indexer_module);
-    realtime_tests.addModule("rpc", rpc_module);
-    realtime_tests.addModule("clickhouse", clickhouse_module);
+    realtime_tests.addModule("indexer", indexer_mod);
+    realtime_tests.addModule("rpc", rpc_mod);
+    realtime_tests.addModule("clickhouse", clickhouse_mod);
     realtime_tests.linkLibC();
     realtime_tests.want_lto = false;
 
