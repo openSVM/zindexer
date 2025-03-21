@@ -8,20 +8,18 @@ const expect = testing.expect;
 pub fn ConcurrentMap(comptime Key: type, comptime Value: type) type {
     return struct {
         const Self = @This();
+        const Entry = struct {
+            key: Key,
+            value: Value,
+        };
+        
         const Bucket = struct {
-            entries: std.ArrayList(struct {
-                key: Key,
-                value: Value,
-            }),
+            entries: std.ArrayList(Entry),
             mutex: Thread.Mutex,
 
             fn init(allocator: std.mem.Allocator) Bucket {
-                const entries = std.ArrayList(struct {
-                    key: Key,
-                    value: Value,
-                }).init(allocator);
                 return .{
-                    .entries = entries,
+                    .entries = std.ArrayList(Entry).init(allocator),
                     .mutex = .{},
                 };
             }
@@ -125,7 +123,7 @@ const WriterContext = struct {
 fn writerThreadFn(ctx: *WriterContext) void {
     var count: usize = 0;
     while (count < ctx.ops_count) : (count += 1) {
-        const key = @intCast(i32, ctx.thread_id * ctx.ops_count + count);
+        const key = @as(i32, @intCast(ctx.thread_id * ctx.ops_count + count));
         if (ctx.map.put(key, key * 2)) |_| {
             if (ctx.map.get(key)) |value| {
                 if (value == key * 2) {
@@ -191,7 +189,7 @@ test "ConcurrentMap - concurrent reads and writes" {
             .success_counter = &success_count,
             .ops_count = ops_per_thread,
         };
-        threads[i] = try Thread.spawn(writerThreadFn, contexts[i]);
+        threads[i] = try Thread.spawn(.{}, writerThreadFn, .{&contexts[i]});
     }
 
     // Wait for all threads
@@ -207,7 +205,7 @@ test "ConcurrentMap - concurrent reads and writes" {
     // Verify all values are correct
     var count: usize = 0;
     while (count < total_ops) : (count += 1) {
-        const key = @intCast(i32, count);
+        const key = @as(i32, @intCast(count));
         try expect(map.get(key).? == key * 2);
     }
 }
@@ -231,7 +229,7 @@ test "ConcurrentMap - RPS benchmark" {
             .map = &map,
             .ops_count = ops_per_thread,
         };
-        threads[i] = try Thread.spawn(readerThreadFn, contexts[i]);
+        threads[i] = try Thread.spawn(.{}, readerThreadFn, .{&contexts[i]});
     }
 
     // Wait for all threads

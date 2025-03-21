@@ -1,8 +1,8 @@
-# Zindexer Architecture
+# ZIndexer Architecture
 
 ## Overview
 
-Zindexer is designed to efficiently index and monitor multiple Solana Virtual Machine (SVM) networks simultaneously. The architecture follows a modular approach with clear separation of concerns between network connectivity, data processing, and storage.
+ZIndexer is designed to efficiently index and monitor multiple Solana Virtual Machine (SVM) networks simultaneously. The architecture follows a modular approach with clear separation of concerns between network connectivity, data processing, and storage.
 
 ## System Components
 
@@ -85,7 +85,7 @@ The storage layer persists processed data to ClickHouse:
 
 ## Multi-Network Processing
 
-Zindexer processes data from multiple networks in parallel:
+ZIndexer processes data from multiple networks in parallel:
 
 ```
                       ┌─────────────────┐
@@ -164,7 +164,7 @@ Zindexer processes data from multiple networks in parallel:
 
 ## Error Handling
 
-Zindexer implements robust error handling:
+ZIndexer implements robust error handling:
 
 1. **Connection Failures**: Automatic reconnection with exponential backoff
 2. **Processing Errors**: Isolated to prevent cascading failures
@@ -191,7 +191,7 @@ Zindexer implements robust error handling:
 
 ## Scalability
 
-Zindexer can scale horizontally by:
+ZIndexer can scale horizontally by:
 
 1. Adding more RPC nodes per network
 2. Distributing network processing across multiple instances

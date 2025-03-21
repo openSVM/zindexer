@@ -1,0 +1,77 @@
+name: ZIndexer Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build Release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: macos
+        
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.14.0
+      
+      - name: Build
+        run: zig build -Doptimize=ReleaseFast
+      
+      - name: Create archive
+        run: |
+          mkdir -p release
+          cp zig-out/bin/zindexer release/
+          cp README.md LICENSE release/
+          cd release
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            tar -czvf ../zindexer-${{ matrix.platform }}.tar.gz *
+          else
+            zip -r ../zindexer-${{ matrix.platform }}.zip *
+          fi
+          cd ..
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: zindexer-${{ matrix.platform }}
+          path: |
+            zindexer-${{ matrix.platform }}.tar.gz
+            zindexer-${{ matrix.platform }}.zip
+          if-no-files-found: ignore
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/zindexer-linux/zindexer-linux.tar.gz
+            artifacts/zindexer-macos/zindexer-macos.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
