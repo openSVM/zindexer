@@ -92,7 +92,7 @@ pub const ClickHouseClient = struct {
 
         // Client revision
         var revision_bytes: [4]u8 = undefined;
-        std.mem.writeInt(u32, &revision_bytes, 54442, .little); // DBMS_MIN_REVISION_WITH_CLIENT_INFO
+        std.mem.writeInt(u32, &revision_bytes, 54442, .Little); // DBMS_MIN_REVISION_WITH_CLIENT_INFO
         try hello_packet.appendSlice(&revision_bytes);
 
         // Database
@@ -120,7 +120,7 @@ pub const ClickHouseClient = struct {
             // Read error message length
             var error_len_bytes: [4]u8 = undefined;
             _ = try self.stream.?.read(&error_len_bytes);
-            const error_len = std.mem.readInt(u32, &error_len_bytes, .little);
+            const error_len = std.mem.readInt(u32, &error_len_bytes, .Little);
 
             // Read error message
             const error_msg = try self.allocator.alloc(u8, error_len);
@@ -152,7 +152,7 @@ pub const ClickHouseClient = struct {
         // Send query string length (little endian)
         const query_len = @as(u32, @intCast(query.len));
         var len_bytes: [4]u8 = undefined;
-        std.mem.writeInt(u32, &len_bytes, query_len, .little);
+        std.mem.writeInt(u32, &len_bytes, query_len, .Little);
         try self.stream.?.writeAll(&len_bytes);
 
         // Send query string
@@ -168,7 +168,7 @@ pub const ClickHouseClient = struct {
             // Read error message length
             var error_len_bytes: [4]u8 = undefined;
             _ = try self.stream.?.read(&error_len_bytes);
-            const error_len = std.mem.readInt(u32, &error_len_bytes, .little);
+            const error_len = std.mem.readInt(u32, &error_len_bytes, .Little);
 
             // Read error message
             const error_msg = try self.allocator.alloc(u8, error_len);
@@ -340,7 +340,7 @@ pub const ClickHouseClient = struct {
             const n = try stream.read(&size_bytes);
             if (n != 8) return error.InvalidResponse;
 
-            return std.mem.readInt(u64, &size_bytes, .little);
+            return std.mem.readInt(u64, &size_bytes, .Little);
         }
 
         return 0;
@@ -370,7 +370,7 @@ pub const ClickHouseClient = struct {
             const n = try stream.read(&size_bytes);
             if (n != 8) return error.InvalidResponse;
 
-            return std.mem.readInt(u64, &size_bytes, .little);
+            return std.mem.readInt(u64, &size_bytes, .Little);
         }
 
         return 0;

@@ -149,8 +149,8 @@ pub fn main() !void {
 
     // Start UI in a separate thread
     const ui_thread = try std.Thread.spawn(.{}, struct {
-        fn run(ui_ptr: *tui.IndexerUI) !void {
-            try ui_ptr.run();
+        fn run(ui_ptr: **tui.IndexerUI) !void {
+            try ui_ptr.*.run();
         }
     }.run, .{&ui});
 

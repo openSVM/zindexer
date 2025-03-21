@@ -5,17 +5,17 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     // Create modules with explicit dependencies
-    const rpc_module = b.createModule(.{
-        .root_source_file = .{ .cwd_relative = "src/rpc.zig" },
+    const rpc_module = b.addModule("rpc", .{
+        .source_file = .{ .path = "src/rpc.zig" },
     });
 
-    const clickhouse_module = b.createModule(.{
-        .root_source_file = .{ .cwd_relative = "src/clickhouse.zig" },
+    const clickhouse_module = b.addModule("clickhouse", .{
+        .source_file = .{ .path = "src/clickhouse.zig" },
     });
 
-    const indexer_module = b.createModule(.{
-        .root_source_file = .{ .cwd_relative = "src/indexer.zig" },
-        .imports = &.{
+    const indexer_module = b.addModule("indexer", .{
+        .source_file = .{ .path = "src/indexer.zig" },
+        .dependencies = &.{
             .{ .name = "rpc", .module = rpc_module },
             .{ .name = "clickhouse", .module = clickhouse_module },
         },
@@ -24,7 +24,7 @@ pub fn build(b: *std.Build) void {
     // Create executable with optimized settings
     const exe = b.addExecutable(.{
         .name = "solana-indexer",
-        .root_source_file = .{ .cwd_relative = "src/main.zig" },
+        .root_source_file = .{ .path = "src/main.zig" },
         .target = target,
         // Force ReleaseSafe for faster builds while maintaining safety
         .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
@@ -32,22 +32,22 @@ pub fn build(b: *std.Build) void {
 
     // Add empty.c with minimal flags
     exe.addCSourceFile(.{
-        .file = .{ .cwd_relative = "src/empty.c" },
+        .file = .{ .path = "src/empty.c" },
         .flags = &.{"-Wall"},
     });
 
     // Add module dependencies
-    exe.root_module.addImport("indexer", indexer_module);
-    exe.root_module.addImport("rpc", rpc_module);
-    exe.root_module.addImport("clickhouse", clickhouse_module);
+    exe.addModule("indexer", indexer_module);
+    exe.addModule("rpc", rpc_module);
+    exe.addModule("clickhouse", clickhouse_module);
 
     // Link system libraries
     exe.linkLibC();
 
     // Set SDK path for macOS
-    if (target.result.isDarwin()) {
-        exe.addSystemIncludePath(.{ .cwd_relative = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include" });
-        exe.addLibraryPath(.{ .cwd_relative = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/lib" });
+    if (target.os_tag == .macos) {
+        exe.addSystemIncludePath(.{ .path = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include" });
+        exe.addLibraryPath(.{ .path = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/lib" });
     }
 
     // Disable CPU feature detection and LTO for faster builds
@@ -69,28 +69,28 @@ pub fn build(b: *std.Build) void {
     // Create test step with optimized settings
     // Add main tests
     const main_tests = b.addTest(.{
-        .root_source_file = .{ .cwd_relative = "src/main.zig" },
+        .root_source_file = .{ .path = "src/main.zig" },
         .target = target,
         .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
     });
 
     // Add realtime tests
     const realtime_tests = b.addTest(.{
-        .root_source_file = .{ .cwd_relative = "src/test_realtime.zig" },
+        .root_source_file = .{ .path = "src/test_realtime.zig" },
         .target = target,
         .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
     });
 
     // Add module dependencies to tests
-    main_tests.root_module.addImport("indexer", indexer_module);
-    main_tests.root_module.addImport("rpc", rpc_module);
-    main_tests.root_module.addImport("clickhouse", clickhouse_module);
+    main_tests.addModule("indexer", indexer_module);
+    main_tests.addModule("rpc", rpc_module);
+    main_tests.addModule("clickhouse", clickhouse_module);
     main_tests.linkLibC();
     main_tests.want_lto = false;
 
-    realtime_tests.root_module.addImport("indexer", indexer_module);
-    realtime_tests.root_module.addImport("rpc", rpc_module);
-    realtime_tests.root_module.addImport("clickhouse", clickhouse_module);
+    realtime_tests.addModule("indexer", indexer_module);
+    realtime_tests.addModule("rpc", rpc_module);
+    realtime_tests.addModule("clickhouse", clickhouse_module);
     realtime_tests.linkLibC();
     realtime_tests.want_lto = false;
 

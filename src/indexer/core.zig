@@ -387,7 +387,7 @@ pub const Indexer = struct {
         // Process blocks sequentially for now to avoid memory issues
         // TODO: Implement proper parallel processing with resource limits
         for (slots) |slot| {
-            processSlot(self, slot) catch |err| {
+            self.processSlot(slot) catch |err| {
                 std.log.err("Failed to process slot {d}: {any}", .{ slot, err });
                 continue;
             };

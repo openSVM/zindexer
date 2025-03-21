@@ -41,13 +41,13 @@ pub const IndexerUI = struct {
         defer self.mutex.unlock();
 
         // Check if network exists in map
-        if (self.network_stats.get(network_name)) |*stats| {
+        if (self.network_stats.getPtr(network_name)) |stats| {
             // Update existing stats
-            stats.*.current_slot = current_slot;
-            stats.*.total_slots_processed = total_slots;
-            stats.*.rpc_ok = rpc_ok;
-            stats.*.db_ok = db_ok;
-            stats.*.last_update = std.time.timestamp();
+            stats.current_slot = current_slot;
+            stats.total_slots_processed = total_slots;
+            stats.rpc_ok = rpc_ok;
+            stats.db_ok = db_ok;
+            stats.last_update = std.time.timestamp();
         } else {
             // Create new stats entry
             const name_copy = self.allocator.dupe(u8, network_name) catch return;
