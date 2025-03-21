@@ -133,7 +133,7 @@ pub const Indexer = struct {
             if (self.stats_ctx) |ctx| {
                 const rpc_ok = true; // TODO: Add proper status checks
                 const db_ok = !self.logging_only;
-                callback(ctx, self.current_slot, self.total_slots_processed, rpc_ok, db_ok);
+                callback(ctx, self.current_network, self.current_slot, self.total_slots_processed, rpc_ok, db_ok);
             }
         }
     }

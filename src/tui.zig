@@ -80,7 +80,7 @@ pub const IndexerUI = struct {
             // Print header
             try std.io.getStdOut().writer().writeAll(
                 \\╔════════════════════════════════════════════════════════════════════════════════╗
-                \\║                                 ZINDEXER STATUS                                 ║
+                \\║                                 ZIndexer Status                                 ║
                 \\╚════════════════════════════════════════════════════════════════════════════════╝
                 \\
             );
