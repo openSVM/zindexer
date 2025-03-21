@@ -1,0 +1,65 @@
+name: ZIndexer CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Zig
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.14.0
+      
+      - name: Cache zig dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/zig
+            zig-cache
+          key: ${{ runner.os }}-zig-${{ hashFiles('build.zig.zon') }}
+          restore-keys: |
+            ${{ runner.os }}-zig-
+      
+      - name: Check Zig version
+        run: zig version
+      
+      - name: Build
+        run: zig build -Doptimize=ReleaseFast
+      
+      - name: Run tests
+        run: zig build test -Doptimize=ReleaseFast
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: zindexer-${{ runner.os }}
+          path: zig-out/bin/zindexer
+          if-no-files-found: error
+
+  # Add a deployment job if needed
+  # deploy:
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   if: github.ref == 'refs/heads/main'
+  #   steps:
+  #     - uses: actions/download-artifact@v3
+  #       with:
+  #         name: zindexer-Linux
+  #         path: ./
+  #     - name: Deploy
+  #       run: echo "Deploying to production..."

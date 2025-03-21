@@ -19,7 +19,7 @@ ZIndexer is a high-performance indexer for Solana Virtual Machine (SVM) networks
 
 ## Requirements
 
-- Zig 0.11.0 or later
+- Zig 0.14.0 or later
 - ClickHouse server
 - Internet connection to access SVM networks
 
@@ -99,6 +99,19 @@ ZIndexer creates several tables in ClickHouse:
 - `nft_sales`: NFT sale events
 - `pool_swaps`: AMM swap events
 - `liquidity_pools`: AMM pool information
+
+## Continuous Integration & Deployment
+
+ZIndexer uses GitHub Actions for CI/CD:
+
+- **CI Workflow**: Automatically builds and tests the code on Ubuntu and macOS
+- **Lint Workflow**: Checks code formatting using `zig fmt`
+- **Release Workflow**: Creates binary releases when a new tag is pushed
+
+Status badges:
+
+![Build Status](https://github.com/openSVM/zindexer/workflows/ZIndexer%20CI/badge.svg)
+![Lint Status](https://github.com/openSVM/zindexer/workflows/ZIndexer%20Lint/badge.svg)
 
 ## License
 
