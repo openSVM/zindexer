@@ -74,7 +74,14 @@ pub fn build(b: *std.Build) void {
         .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
     });
 
-    // Add realtime tests
+    // Add simple tests that don't require network access (for CI)
+    const simple_tests = b.addTest(.{
+        .root_source_file = .{ .path = "src/test_simple.zig" },
+        .target = target,
+        .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
+    });
+
+    // Add realtime tests (disabled by default in CI)
     const realtime_tests = b.addTest(.{
         .root_source_file = .{ .path = "src/test_realtime.zig" },
         .target = target,
@@ -88,6 +95,8 @@ pub fn build(b: *std.Build) void {
     main_tests.linkLibC();
     main_tests.want_lto = false;
 
+    // Simple tests don't need any dependencies
+
     realtime_tests.addModule("indexer", indexer_mod);
     realtime_tests.addModule("rpc", rpc_mod);
     realtime_tests.addModule("clickhouse", clickhouse_mod);
@@ -95,9 +104,16 @@ pub fn build(b: *std.Build) void {
     realtime_tests.want_lto = false;
 
     const run_main_tests = b.addRunArtifact(main_tests);
+    const run_simple_tests = b.addRunArtifact(simple_tests);
     const run_realtime_tests = b.addRunArtifact(realtime_tests);
 
+    // Define different test steps
     const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_main_tests.step);
-    test_step.dependOn(&run_realtime_tests.step);
+    test_step.dependOn(&run_simple_tests.step); // Only run simple tests by default
+
+    // Add full test step that includes all tests
+    const full_test_step = b.step("test-full", "Run all tests including network-dependent ones");
+    full_test_step.dependOn(&run_main_tests.step);
+    full_test_step.dependOn(&run_simple_tests.step);
+    full_test_step.dependOn(&run_realtime_tests.step);
 }

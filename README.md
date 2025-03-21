@@ -112,6 +112,7 @@ Status badges:
 
 ![Build Status](https://github.com/openSVM/zindexer/workflows/ZIndexer%20CI/badge.svg)
 ![Lint Status](https://github.com/openSVM/zindexer/workflows/ZIndexer%20Lint/badge.svg)
+![Release Status](https://github.com/openSVM/zindexer/workflows/ZIndexer%20Release/badge.svg)
 
 ## License
 

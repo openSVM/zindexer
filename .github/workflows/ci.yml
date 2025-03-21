@@ -41,7 +41,7 @@ jobs:
       - name: Build
         run: zig build -Doptimize=ReleaseFast
       
-      - name: Run tests
+      - name: Run simple tests
         run: zig build test -Doptimize=ReleaseFast
       
       - name: Upload artifact
@@ -50,16 +50,3 @@ jobs:
           name: zindexer-${{ runner.os }}
           path: zig-out/bin/zindexer
           if-no-files-found: error
-
-  # Add a deployment job if needed
-  # deploy:
-  #   needs: build
-  #   runs-on: ubuntu-latest
-  #   if: github.ref == 'refs/heads/main'
-  #   steps:
-  #     - uses: actions/download-artifact@v3
-  #       with:
-  #         name: zindexer-Linux
-  #         path: ./
-  #     - name: Deploy
-  #       run: echo "Deploying to production..."
