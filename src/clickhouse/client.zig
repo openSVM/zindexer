@@ -10,6 +10,7 @@ const nft = @import("nft.zig");
 const security = @import("security.zig");
 const instruction = @import("instruction.zig");
 const account = @import("account.zig");
+const database = @import("../database.zig");
 
 pub const ClickHouseClient = struct {
     allocator: Allocator,
@@ -19,6 +20,18 @@ pub const ClickHouseClient = struct {
     database: []const u8,
     stream: ?net.Stream,
     logging_only: bool,
+    db_client: database.DatabaseClient,
+    
+    // VTable implementation for DatabaseClient interface
+    const vtable = database.DatabaseClient.VTable{
+        .deinitFn = deinitImpl,
+        .executeQueryFn = executeQueryImpl,
+        .verifyConnectionFn = verifyConnectionImpl,
+        .createTablesFn = createTablesImpl,
+        .insertTransactionBatchFn = insertTransactionBatchImpl,
+        .getDatabaseSizeFn = getDatabaseSizeImpl,
+        .getTableSizeFn = getTableSizeImpl,
+    };
 
     const Self = @This();
 
@@ -42,9 +55,18 @@ pub const ClickHouseClient = struct {
             .database = try allocator.dupe(u8, database),
             .stream = null,
             .logging_only = false,
+            .db_client = database.DatabaseClient{
+                .vtable = &vtable,
+            },
         };
     }
 
+    // Implementation of DatabaseClient interface methods
+    fn deinitImpl(ptr: *anyopaque) void {
+        const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+        self.deinit();
+    }
+    
     pub fn deinit(self: *Self) void {
         if (self.stream) |*stream| {
             stream.close();
@@ -133,6 +155,11 @@ pub const ClickHouseClient = struct {
         }
     }
 
+    fn executeQueryImpl(ptr: *anyopaque, query: []const u8) database.DatabaseError!void {
+        const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+        return self.executeQuery(query);
+    }
+    
     pub fn executeQuery(self: *Self, query: []const u8) !void {
         if (self.logging_only) {
             std.log.info("Logging-only mode, skipping query: {s}", .{query});
@@ -180,12 +207,22 @@ pub const ClickHouseClient = struct {
         }
     }
 
+    fn verifyConnectionImpl(ptr: *anyopaque) database.DatabaseError!void {
+        const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+        return self.verifyConnection();
+    }
+    
     pub fn verifyConnection(self: *Self) !void {
         // Try a simple query to verify connection
         try self.executeQuery("SELECT 1");
         std.log.info("ClickHouse connection verified", .{});
     }
 
+    fn createTablesImpl(ptr: *anyopaque) database.DatabaseError!void {
+        const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+        return self.createTables();
+    }
+    
     pub fn createTables(self: *Self) !void {
         // First verify connection
         self.verifyConnection() catch |err| {
@@ -316,6 +353,11 @@ pub const ClickHouseClient = struct {
     pub usingnamespace account;
 
     // Size tracking operations
+    fn getDatabaseSizeImpl(ptr: *anyopaque) database.DatabaseError!usize {
+        const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+        return self.getDatabaseSize();
+    }
+    
     pub fn getDatabaseSize(self: *Self) !usize {
         if (self.logging_only) return 0;
 
@@ -346,6 +388,11 @@ pub const ClickHouseClient = struct {
         return 0;
     }
 
+    fn getTableSizeImpl(ptr: *anyopaque, table_name: []const u8) database.DatabaseError!usize {
+        const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+        return self.getTableSize(table_name);
+    }
+    
     pub fn getTableSize(self: *Self, table_name: []const u8) !usize {
         if (self.logging_only) return 0;
 
@@ -376,6 +423,11 @@ pub const ClickHouseClient = struct {
         return 0;
     }
 
+    fn insertTransactionBatchImpl(ptr: *anyopaque, transactions: []const std.json.Value, network_name: []const u8) database.DatabaseError!void {
+        const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+        return self.insertTransactionBatch(transactions, network_name);
+    }
+    
     pub fn insertTransactionBatch(self: *Self, transactions: []const std.json.Value, network_name: []const u8) !void {
         if (self.logging_only) {
             std.log.info("Logging-only mode, skipping batch insert of {d} transactions for network {s}", .{transactions.len, network_name});

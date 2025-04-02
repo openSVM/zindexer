@@ -12,7 +12,9 @@ const json = std.json;
 
 pub const dependencies = struct {
     pub const rpc = @import("../rpc.zig");
+    pub const database = @import("../database.zig");
     pub const clickhouse = @import("../clickhouse.zig");
+    pub const questdb = @import("../questdb.zig");
 };
 
 pub const IndexerError = error{
@@ -29,10 +31,11 @@ pub const IndexerMode = enum {
 pub const IndexerConfig = struct {
     rpc_nodes_file: []const u8,
     ws_nodes_file: []const u8,
-    clickhouse_url: []const u8,
-    clickhouse_user: []const u8 = "default",
-    clickhouse_password: []const u8 = "",
-    clickhouse_database: []const u8 = "default",
+    database_type: dependencies.database.DatabaseType = .ClickHouse,
+    database_url: []const u8,
+    database_user: []const u8 = "default",
+    database_password: []const u8 = "",
+    database_name: []const u8 = "default",
     mode: IndexerMode = .Historical,
     batch_size: u32 = 20,
     max_retries: u32 = 3,
@@ -54,7 +57,7 @@ pub const Indexer = struct {
     allocator: Allocator,
     config: IndexerConfig,
     rpc_client: dependencies.rpc.RpcClient,
-    db_client: dependencies.clickhouse.ClickHouseClient,
+    db_client: *dependencies.database.DatabaseClient,
     current_slot: u64,
     target_slot: u64,
     running: bool,
@@ -68,21 +71,28 @@ pub const Indexer = struct {
     const Self = @This();
 
     pub fn init(allocator: Allocator, config: IndexerConfig) !Self {
-        // Initialize ClickHouse client
-        var db_client = try dependencies.clickhouse.ClickHouseClient.init(allocator, config.clickhouse_url, config.clickhouse_user, config.clickhouse_password, config.clickhouse_database);
+        // Initialize database client based on the configured type
+        var db_client = try dependencies.database.createDatabaseClient(
+            allocator,
+            config.database_type,
+            config.database_url,
+            config.database_user,
+            config.database_password,
+            config.database_name
+        );
         errdefer db_client.deinit();
 
         var logging_only = false;
 
         // Create database tables - this will verify connection
-        std.log.info("Verifying ClickHouse connection and creating tables...", .{});
+        std.log.info("Verifying database connection and creating tables...", .{});
         db_client.createTables() catch |err| {
-            std.log.warn("Failed to connect to ClickHouse: {any} - continuing in logging-only mode", .{err});
+            std.log.warn("Failed to connect to database: {any} - continuing in logging-only mode", .{err});
             logging_only = true;
         };
 
         if (!logging_only) {
-            std.log.info("Successfully connected to ClickHouse", .{});
+            std.log.info("Successfully connected to database", .{});
         }
 
         // Now initialize RPC client

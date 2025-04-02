@@ -1,7 +1,11 @@
 #!/bin/bash
 
-# Use provided CLICKHOUSE_URL or default to localhost
+# Default database type is ClickHouse
+DB_TYPE="${DB_TYPE:-clickhouse}"
+
+# Use provided database URLs or default to localhost
 CLICKHOUSE_URL="${CLICKHOUSE_URL:-http://localhost:8123}"
+QUESTDB_URL="${QUESTDB_URL:-http://localhost:9000}"
 
 # Function to format SQL statement
 format_sql() {
@@ -34,15 +38,32 @@ execute_sql() {
     sql=$(format_sql "$sql")
     echo "Formatted SQL: ${sql:0:100}..."
     
-    # Execute the SQL
-    local response=$(curl -s -X POST "${CLICKHOUSE_URL}" \
-        -H "Content-Type: text/plain" \
-        --data-binary "$sql")
-    
-    local status=$?
-    if [ $status -ne 0 ] || [ -n "$response" ]; then
-        echo "Failed to execute SQL statement"
-        echo "Error response: $response"
+    if [ "$DB_TYPE" = "clickhouse" ]; then
+        # Execute the SQL for ClickHouse
+        local response=$(curl -s -X POST "${CLICKHOUSE_URL}" \
+            -H "Content-Type: text/plain" \
+            --data-binary "$sql")
+        
+        local status=$?
+        if [ $status -ne 0 ] || [ -n "$response" ]; then
+            echo "Failed to execute SQL statement on ClickHouse"
+            echo "Error response: $response"
+            return 1
+        fi
+    elif [ "$DB_TYPE" = "questdb" ]; then
+        # Execute the SQL for QuestDB
+        local response=$(curl -s -X POST "${QUESTDB_URL}/exec" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": \"$sql\"}")
+        
+        local status=$?
+        if [ $status -ne 0 ] || [[ "$response" == *"error"* ]]; then
+            echo "Failed to execute SQL statement on QuestDB"
+            echo "Error response: $response"
+            return 1
+        fi
+    else
+        echo "Unsupported database type: $DB_TYPE"
         return 1
     fi
     echo
@@ -98,15 +119,32 @@ execute_sql_file() {
     echo
 }
 
-# Apply schema files in order
-for schema_file in \
-    "clickhouse/schema/01_core.sql" \
-    "clickhouse/schema/02_tokens.sql" \
-    "clickhouse/schema/03_defi.sql" \
-    "clickhouse/schema/04_analytics.sql" \
-    "clickhouse/schema/05_nft_and_security.sql"
-do
-    execute_sql_file "$schema_file"
-done
+# Apply schema files in order based on database type
+if [ "$DB_TYPE" = "clickhouse" ]; then
+    echo "Applying ClickHouse schema..."
+    for schema_file in \
+        "clickhouse/schema/01_core.sql" \
+        "clickhouse/schema/02_tokens.sql" \
+        "clickhouse/schema/03_defi.sql" \
+        "clickhouse/schema/04_analytics.sql" \
+        "clickhouse/schema/05_nft_and_security.sql"
+    do
+        execute_sql_file "$schema_file"
+    done
+elif [ "$DB_TYPE" = "questdb" ]; then
+    echo "Applying QuestDB schema..."
+    for schema_file in \
+        "questdb/schema/01_core.sql" \
+        "questdb/schema/02_tokens.sql" \
+        "questdb/schema/03_defi.sql" \
+        "questdb/schema/04_analytics.sql" \
+        "questdb/schema/05_nft_and_security.sql"
+    do
+        execute_sql_file "$schema_file"
+    done
+else
+    echo "Unsupported database type: $DB_TYPE"
+    exit 1
+fi
 
 echo "Schema application complete!"

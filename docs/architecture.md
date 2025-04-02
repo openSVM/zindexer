@@ -78,9 +78,11 @@ The storage layer persists processed data to ClickHouse:
 │                              STORAGE LAYER                                │
 │                                                                           │
 ├───────────────┬───────────────────────────────┬───────────────────────────┤
-│ ClickHouse    │      Schema                   │      Query                │
+│ Database      │      Schema                   │      Query                │
 │ Client        │      Manager                  │      Optimizer            │
-└───────────────┴───────────────────────────────┴───────────────────────────┘
+├───────────────┴───────────────────────────────┴───────────────────────────┤
+│       ClickHouse Client   |         QuestDB Client                        │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Multi-Network Processing

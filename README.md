@@ -14,13 +14,13 @@ ZIndexer is a high-performance indexer for Solana Virtual Machine (SVM) networks
   - Blocks and slots
   - Account activity
 - **Real-time and Historical Modes**: Choose between real-time indexing or historical backfilling
-- **ClickHouse Integration**: High-performance storage and querying of indexed data
+- **Database Integration**: High-performance storage and querying of indexed data with support for ClickHouse and QuestDB
 - **Interactive TUI**: Monitor indexing progress across all networks in real-time
 
 ## Requirements
 
 - Zig 0.14.0 or later
-- ClickHouse server
+- ClickHouse server or QuestDB server
 - Internet connection to access SVM networks
 
 ## Building
@@ -48,7 +48,10 @@ You can customize these files to add or remove networks, or to use different RPC
 ./zig-out/bin/zindexer --mode historical
 
 # Customize ClickHouse connection
-./zig-out/bin/zindexer --clickhouse-url localhost:9000 --clickhouse-user default --clickhouse-password "" --clickhouse-database solana
+./zig-out/bin/zindexer --database-type clickhouse --database-url localhost:9000 --database-user default --database-password "" --database-name solana
+
+# Use QuestDB instead
+./zig-out/bin/zindexer --database-type questdb --database-url localhost:9000 --database-user admin --database-password "quest" --database-name solana
 
 # Show help
 ./zig-out/bin/zindexer --help
@@ -59,14 +62,45 @@ You can customize these files to add or remove networks, or to use different RPC
 - `-m, --mode <mode>`: Indexer mode (historical or realtime)
 - `-r, --rpc-nodes <file>`: RPC nodes configuration file
 - `-w, --ws-nodes <file>`: WebSocket nodes configuration file
-- `-c, --clickhouse-url <url>`: ClickHouse server URL
-- `-u, --clickhouse-user <user>`: ClickHouse username
-- `-p, --clickhouse-password <pass>`: ClickHouse password
-- `-d, --clickhouse-database <db>`: ClickHouse database name
+- `-t, --database-type <type>`: Database type (clickhouse or questdb)
+- `-c, --database-url <url>`: Database server URL
+- `-u, --database-user <user>`: Database username
+- `-p, --database-password <pass>`: Database password
+- `-d, --database-name <db>`: Database name
 - `-b, --batch-size <size>`: Batch size for historical indexing
 - `--max-retries <count>`: Maximum retry attempts
 - `--retry-delay <ms>`: Delay between retries in milliseconds
+
+#### Legacy ClickHouse Options (for backward compatibility)
+
+- `--clickhouse-url <url>`: ClickHouse server URL
+- `--clickhouse-user <user>`: ClickHouse username
+- `--clickhouse-password <pass>`: ClickHouse password
+- `--clickhouse-database <db>`: ClickHouse database name
+
+#### QuestDB Options
+
+- `--questdb-url <url>`: QuestDB server URL
+- `--questdb-user <user>`: QuestDB username
+- `--questdb-password <pass>`: QuestDB password
+- `--questdb-database <db>`: QuestDB database name
 - `-h, --help`: Show help message
+
+## Schema Setup
+
+The schema can be automatically applied to your database instance using the included script:
+
+### For ClickHouse
+
+```bash
+DB_TYPE=clickhouse CLICKHOUSE_URL="http://localhost:8123" ./scripts/apply_schema.sh
+```
+
+### For QuestDB
+
+```bash
+DB_TYPE=questdb QUESTDB_URL="http://localhost:9000" ./scripts/apply_schema.sh
+```
 
 ## Architecture
 
@@ -74,7 +108,9 @@ ZIndexer is built with a modular architecture:
 
 - **Core Indexer**: Manages connections to multiple networks and coordinates indexing
 - **RPC Client**: Handles communication with SVM networks via HTTP and WebSocket
-- **ClickHouse Client**: Manages data storage and retrieval
+- **Database Abstraction Layer**: Provides a common interface for different database backends
+  - **ClickHouse Client**: Manages data storage and retrieval in ClickHouse
+  - **QuestDB Client**: Manages data storage and retrieval in QuestDB
 - **Indexing Modules**:
   - Transaction Indexer: Processes transaction data
   - Instruction Indexer: Processes instruction data

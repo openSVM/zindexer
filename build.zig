@@ -4,20 +4,40 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    // Get dependencies
+    const questdb_dep = b.dependency("c-questdb-client", .{});
+
     // Create modules with explicit dependencies
     const rpc_mod = b.addModule("rpc", .{
         .source_file = .{ .path = "src/rpc.zig" },
     });
 
+    const database_mod = b.addModule("database", .{
+        .source_file = .{ .path = "src/database.zig" },
+    });
+
     const clickhouse_mod = b.addModule("clickhouse", .{
         .source_file = .{ .path = "src/clickhouse.zig" },
+        .dependencies = &.{
+            .{ .name = "database", .module = database_mod },
+        },
+    });
+
+    const questdb_mod = b.addModule("questdb", .{
+        .source_file = .{ .path = "src/questdb.zig" },
+        .dependencies = &.{
+            .{ .name = "database", .module = database_mod },
+            .{ .name = "c-questdb-client", .module = questdb_dep.module("c-questdb-client") },
+        },
     });
 
     const indexer_mod = b.addModule("indexer", .{
         .source_file = .{ .path = "src/indexer.zig" },
         .dependencies = &.{
             .{ .name = "rpc", .module = rpc_mod },
+            .{ .name = "database", .module = database_mod },
             .{ .name = "clickhouse", .module = clickhouse_mod },
+            .{ .name = "questdb", .module = questdb_mod },
         },
     });
 
