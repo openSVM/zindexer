@@ -18,10 +18,11 @@ pub fn main() !void {
     var mode: indexer.IndexerMode = .RealTime;
     var rpc_nodes_file: []const u8 = "src/rpc_nodes.json";
     var ws_nodes_file: []const u8 = "src/ws_nodes.json";
-    var clickhouse_url: []const u8 = "195.200.29.12:9000";
-    var clickhouse_user: []const u8 = "rin";
-    var clickhouse_password: []const u8 = "rpdQ4fkBWQWQ6P96q85WlXhyZREsKsCsaSxLDaQq5IiVMR1VENtjGwoYe7mVIaTV";
-    var clickhouse_database: []const u8 = "solana";
+    var database_type: indexer.core.dependencies.database.DatabaseType = .ClickHouse;
+    var database_url: []const u8 = "195.200.29.12:9000";
+    var database_user: []const u8 = "rin";
+    var database_password: []const u8 = "rpdQ4fkBWQWQ6P96q85WlXhyZREsKsCsaSxLDaQq5IiVMR1VENtjGwoYe7mVIaTV";
+    var database_name: []const u8 = "solana";
     var batch_size: u32 = 20;
     var max_retries: u32 = 3;
     var retry_delay_ms: u32 = 1000;
@@ -58,34 +59,114 @@ pub fn main() !void {
                 return error.InvalidArgument;
             }
             ws_nodes_file = args[i];
-        } else if (std.mem.eql(u8, arg, "--clickhouse-url") or std.mem.eql(u8, arg, "-c")) {
+        } else if (std.mem.eql(u8, arg, "--database-type") or std.mem.eql(u8, arg, "-t")) {
+            i += 1;
+            if (i >= args.len) {
+                std.log.err("Missing value for --database-type", .{});
+                return error.InvalidArgument;
+            }
+            if (std.mem.eql(u8, args[i], "clickhouse")) {
+                database_type = .ClickHouse;
+            } else if (std.mem.eql(u8, args[i], "questdb")) {
+                database_type = .QuestDB;
+            } else {
+                std.log.err("Invalid database type: {s}. Must be 'clickhouse' or 'questdb'", .{args[i]});
+                return error.InvalidArgument;
+            }
+        } else if (std.mem.eql(u8, arg, "--database-url") or std.mem.eql(u8, arg, "-c")) {
+            i += 1;
+            if (i >= args.len) {
+                std.log.err("Missing value for --database-url", .{});
+                return error.InvalidArgument;
+            }
+            database_url = args[i];
+        } else if (std.mem.eql(u8, arg, "--database-user") or std.mem.eql(u8, arg, "-u")) {
+            i += 1;
+            if (i >= args.len) {
+                std.log.err("Missing value for --database-user", .{});
+                return error.InvalidArgument;
+            }
+            database_user = args[i];
+        } else if (std.mem.eql(u8, arg, "--database-password") or std.mem.eql(u8, arg, "-p")) {
+            i += 1;
+            if (i >= args.len) {
+                std.log.err("Missing value for --database-password", .{});
+                return error.InvalidArgument;
+            }
+            database_password = args[i];
+        } else if (std.mem.eql(u8, arg, "--database-name") or std.mem.eql(u8, arg, "-d")) {
+            i += 1;
+            if (i >= args.len) {
+                std.log.err("Missing value for --database-name", .{});
+                return error.InvalidArgument;
+            }
+            database_name = args[i];
+        // Keep backward compatibility with old clickhouse arguments
+        } else if (std.mem.eql(u8, arg, "--clickhouse-url")) {
             i += 1;
             if (i >= args.len) {
                 std.log.err("Missing value for --clickhouse-url", .{});
                 return error.InvalidArgument;
             }
-            clickhouse_url = args[i];
-        } else if (std.mem.eql(u8, arg, "--clickhouse-user") or std.mem.eql(u8, arg, "-u")) {
+            database_url = args[i];
+            database_type = .ClickHouse;
+        } else if (std.mem.eql(u8, arg, "--clickhouse-user")) {
             i += 1;
             if (i >= args.len) {
                 std.log.err("Missing value for --clickhouse-user", .{});
                 return error.InvalidArgument;
             }
-            clickhouse_user = args[i];
-        } else if (std.mem.eql(u8, arg, "--clickhouse-password") or std.mem.eql(u8, arg, "-p")) {
+            database_user = args[i];
+            database_type = .ClickHouse;
+        } else if (std.mem.eql(u8, arg, "--clickhouse-password")) {
             i += 1;
             if (i >= args.len) {
                 std.log.err("Missing value for --clickhouse-password", .{});
                 return error.InvalidArgument;
             }
-            clickhouse_password = args[i];
-        } else if (std.mem.eql(u8, arg, "--clickhouse-database") or std.mem.eql(u8, arg, "-d")) {
+            database_password = args[i];
+            database_type = .ClickHouse;
+        } else if (std.mem.eql(u8, arg, "--clickhouse-database")) {
             i += 1;
             if (i >= args.len) {
                 std.log.err("Missing value for --clickhouse-database", .{});
                 return error.InvalidArgument;
             }
-            clickhouse_database = args[i];
+            database_name = args[i];
+            database_type = .ClickHouse;
+        // QuestDB specific arguments for backward compatibility
+        } else if (std.mem.eql(u8, arg, "--questdb-url")) {
+            i += 1;
+            if (i >= args.len) {
+                std.log.err("Missing value for --questdb-url", .{});
+                return error.InvalidArgument;
+            }
+            database_url = args[i];
+            database_type = .QuestDB;
+        } else if (std.mem.eql(u8, arg, "--questdb-user")) {
+            i += 1;
+            if (i >= args.len) {
+                std.log.err("Missing value for --questdb-user", .{});
+                return error.InvalidArgument;
+            }
+            database_user = args[i];
+            database_type = .QuestDB;
+        } else if (std.mem.eql(u8, arg, "--questdb-password")) {
+            i += 1;
+            if (i >= args.len) {
+                std.log.err("Missing value for --questdb-password", .{});
+                return error.InvalidArgument;
+            }
+            database_password = args[i];
+            database_type = .QuestDB;
+        } else if (std.mem.eql(u8, arg, "--questdb-database")) {
+            i += 1;
+            if (i >= args.len) {
+                std.log.err("Missing value for --questdb-database", .{});
+                return error.InvalidArgument;
+            }
+            database_name = args[i];
+            database_type = .QuestDB;
         } else if (std.mem.eql(u8, arg, "--batch-size") or std.mem.eql(u8, arg, "-b")) {
             i += 1;
             if (i >= args.len) {
@@ -121,10 +202,11 @@ pub fn main() !void {
     const config = indexer.IndexerConfig{
         .rpc_nodes_file = rpc_nodes_file,
         .ws_nodes_file = ws_nodes_file,
-        .clickhouse_url = clickhouse_url,
-        .clickhouse_user = clickhouse_user,
-        .clickhouse_password = clickhouse_password,
-        .clickhouse_database = clickhouse_database,
+        .database_type = database_type,
+        .database_url = database_url,
+        .database_user = database_user,
+        .database_password = database_password,
+        .database_name = database_name,
         .mode = mode,
         .batch_size = batch_size,
         .max_retries = max_retries,
@@ -169,13 +251,27 @@ fn printUsage() void {
         \\  -m, --mode <mode>                 Indexer mode (historical or realtime)
         \\  -r, --rpc-nodes <file>            RPC nodes configuration file
         \\  -w, --ws-nodes <file>             WebSocket nodes configuration file
-        \\  -c, --clickhouse-url <url>        ClickHouse server URL
-        \\  -u, --clickhouse-user <user>      ClickHouse username
-        \\  -p, --clickhouse-password <pass>  ClickHouse password
-        \\  -d, --clickhouse-database <db>    ClickHouse database name
+        \\  -t, --database-type <type>        Database type (clickhouse or questdb)
+        \\  -c, --database-url <url>          Database server URL
+        \\  -u, --database-user <user>        Database username
+        \\  -p, --database-password <pass>    Database password
+        \\  -d, --database-name <db>          Database name
         \\  -b, --batch-size <size>           Batch size for historical indexing
         \\      --max-retries <count>         Maximum retry attempts
         \\      --retry-delay <ms>            Delay between retries in milliseconds
+        \\
+        \\Legacy ClickHouse options (deprecated):
+        \\      --clickhouse-url <url>        ClickHouse server URL
+        \\      --clickhouse-user <user>      ClickHouse username
+        \\      --clickhouse-password <pass>  ClickHouse password
+        \\      --clickhouse-database <db>    ClickHouse database name
+        \\
+        \\QuestDB options:
+        \\      --questdb-url <url>           QuestDB server URL
+        \\      --questdb-user <user>         QuestDB username
+        \\      --questdb-password <pass>     QuestDB password
+        \\      --questdb-database <db>       QuestDB database name
+        \\
         \\  -h, --help                        Show this help message
         \\
     , .{});
