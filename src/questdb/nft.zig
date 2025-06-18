@@ -1,6 +1,7 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const types = @import("types.zig");
+const c_questdb = @import("c-questdb-client");
 
 // NFT-related operations for QuestDB
 // These would be similar to the core.zig implementation but using ILP format
