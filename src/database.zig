@@ -680,7 +680,10 @@ pub fn createDatabaseClient(
             const client = try allocator.create(ch.ClickHouseClient);
             errdefer allocator.destroy(client);
             
-            client.* = try ch.ClickHouseClient.init(allocator, url, user, password, database);
+            client.* = ch.ClickHouseClient.init(allocator, url, user, password, database) catch |err| {
+                std.log.warn("Failed to initialize ClickHouse client: {any}", .{err});
+                return error.DatabaseError;
+            };
             return @ptrCast(client);
         },
         .QuestDB => {

@@ -11,6 +11,9 @@ const security = @import("security.zig");
 const instruction = @import("instruction.zig");
 const account = @import("account.zig");
 const database = @import("../database.zig");
+const http_client = @import("http_client.zig");
+const bulk_insert = @import("bulk_insert.zig");
+const optimized_schemas = @import("optimized_schemas.zig");
 
 pub const ClickHouseClient = struct {
     allocator: Allocator,
@@ -21,6 +24,13 @@ pub const ClickHouseClient = struct {
     stream: ?net.Stream,
     logging_only: bool,
     db_client: database.DatabaseClient,
+    
+    // New high-performance components
+    http_client: ?http_client.ClickHouseHttpClient,
+    bulk_manager: ?bulk_insert.BulkInsertManager,
+    use_http: bool,
+    auto_flush: bool,
+    batch_size: usize,
     
     // VTable implementation for DatabaseClient interface
     const vtable = database.DatabaseClient.VTable{
@@ -74,12 +84,50 @@ pub const ClickHouseClient = struct {
         password: []const u8,
         db_name: []const u8,
     ) !Self {
-        std.log.info("Initializing ClickHouse client with URL: {s}, user: {s}, database: {s}", .{ url, user, db_name });
+        return initWithOptions(allocator, url, user, password, db_name, .{});
+    }
 
-        // Validate URL
-        _ = try std.Uri.parse(url);
+    pub const InitOptions = struct {
+        use_http: bool = true,
+        auto_flush: bool = true,
+        batch_size: usize = 5000,
+        compression: bool = true,
+    };
 
-        return Self{
+    pub fn initWithOptions(
+        allocator: Allocator,
+        url: []const u8,
+        user: []const u8,
+        password: []const u8,
+        db_name: []const u8,
+        options: InitOptions,
+    ) !Self {
+        std.log.info("Initializing ClickHouse client with URL: {s}, user: {s}, database: {s}, HTTP: {}", 
+            .{ url, user, db_name, options.use_http });
+
+        // Parse host and port from URL
+        var host: []const u8 = "localhost";
+        var port: u16 = 8123;
+        
+        if (std.mem.startsWith(u8, url, "http://")) {
+            const url_part = url[7..]; // Remove "http://"
+            if (std.mem.indexOf(u8, url_part, ":")) |colon_idx| {
+                host = url_part[0..colon_idx];
+                const port_str = url_part[colon_idx + 1..];
+                if (std.mem.indexOf(u8, port_str, "/")) |slash_idx| {
+                    port = try std.fmt.parseInt(u16, port_str[0..slash_idx], 10);
+                } else {
+                    port = try std.fmt.parseInt(u16, port_str, 10);
+                }
+            } else {
+                host = url_part;
+                if (std.mem.indexOf(u8, host, "/")) |slash_idx| {
+                    host = host[0..slash_idx];
+                }
+            }
+        }
+
+        var self = Self{
             .allocator = allocator,
             .url = try allocator.dupe(u8, url),
             .user = try allocator.dupe(u8, user),
@@ -90,7 +138,37 @@ pub const ClickHouseClient = struct {
             .db_client = database.DatabaseClient{
                 .vtable = &vtable,
             },
+            .http_client = null,
+            .bulk_manager = null,
+            .use_http = options.use_http,
+            .auto_flush = options.auto_flush,
+            .batch_size = options.batch_size,
         };
+
+        // Initialize HTTP client if requested
+        if (options.use_http) {
+            const config = http_client.ClickHouseHttpClient.Config{
+                .host = try allocator.dupe(u8, host),
+                .port = port,
+                .user = try allocator.dupe(u8, user),
+                .password = try allocator.dupe(u8, password),
+                .database = try allocator.dupe(u8, db_name),
+                .compression = options.compression,
+                .max_batch_size = options.batch_size,
+            };
+            
+            self.http_client = try http_client.ClickHouseHttpClient.init(allocator, config);
+            
+            // Initialize bulk insert manager
+            self.bulk_manager = bulk_insert.BulkInsertManager.init(
+                allocator,
+                &self.http_client.?,
+                options.batch_size,
+                options.auto_flush
+            );
+        }
+
+        return self;
     }
 
     // Implementation of DatabaseClient interface methods
@@ -100,6 +178,18 @@ pub const ClickHouseClient = struct {
     }
     
     pub fn deinit(self: *Self) void {
+        if (self.bulk_manager) |*manager| {
+            // Flush any remaining data before cleanup
+            manager.flushAll() catch |err| {
+                std.log.warn("Failed to flush bulk data during deinit: {}", .{err});
+            };
+            manager.deinit();
+        }
+        
+        if (self.http_client) |*client| {
+            client.deinit();
+        }
+        
         if (self.stream) |*stream| {
             stream.close();
         }
@@ -201,6 +291,13 @@ pub const ClickHouseClient = struct {
             return;
         }
 
+        // Use HTTP client if available for better performance
+        if (self.http_client) |*client| {
+            _ = try client.executeQuery(query);
+            return;
+        }
+
+        // Fallback to TCP client
         try self.connect();
 
         // Send query packet
@@ -279,115 +376,38 @@ pub const ClickHouseClient = struct {
             \\CREATE DATABASE IF NOT EXISTS {s}
         , .{self.database}));
 
-        // Create tables
-        try self.executeQuery(
-            \\CREATE TABLE IF NOT EXISTS transactions (
-            \\    network String,
-            \\    signature String,
-            \\    slot UInt64,
-            \\    block_time Int64,
-            \\    success UInt8,
-            \\    fee UInt64,
-            \\    compute_units_consumed UInt64,
-            \\    compute_units_price UInt64,
-            \\    recent_blockhash String
-            \\) ENGINE = MergeTree()
-            \\ORDER BY (network, slot, signature)
-        );
+        // Create optimized tables using new schemas
+        const table_statements = try optimized_schemas.OptimizedSchemas.getAllTableStatements(self.allocator);
+        defer {
+            for (table_statements) |stmt| {
+                // Note: statements are string literals, don't free them
+                _ = stmt;
+            }
+            self.allocator.free(table_statements);
+        }
 
-        try self.executeQuery(
-            \\CREATE TABLE IF NOT EXISTS program_executions (
-            \\    network String,
-            \\    program_id String,
-            \\    slot UInt64,
-            \\    block_time Int64,
-            \\    execution_count UInt32,
-            \\    total_cu_consumed UInt64,
-            \\    total_fee UInt64,
-            \\    success_count UInt32,
-            \\    error_count UInt32
-            \\) ENGINE = MergeTree()
-            \\ORDER BY (network, slot, program_id)
-        );
+        for (table_statements) |statement| {
+            try self.executeQuery(statement);
+            std.log.info("Created optimized table with statement length: {d}", .{statement.len});
+        }
 
-        try self.executeQuery(
-            \\CREATE TABLE IF NOT EXISTS account_activity (
-            \\    network String,
-            \\    pubkey String,
-            \\    slot UInt64,
-            \\    block_time Int64,
-            \\    program_id String,
-            \\    write_count UInt32,
-            \\    cu_consumed UInt64,
-            \\    fee_paid UInt64
-            \\) ENGINE = MergeTree()
-            \\ORDER BY (network, slot, pubkey)
-        );
+        // Create materialized views for analytics
+        const view_statements = try optimized_schemas.OptimizedSchemas.getAllViewStatements(self.allocator);
+        defer {
+            for (view_statements) |stmt| {
+                _ = stmt;
+            }
+            self.allocator.free(view_statements);
+        }
 
-        try self.executeQuery(
-            \\CREATE TABLE IF NOT EXISTS instructions (
-            \\    network String,
-            \\    signature String,
-            \\    slot UInt64,
-            \\    block_time Int64,
-            \\    program_id String,
-            \\    instruction_index UInt32,
-            \\    inner_instruction_index Nullable(UInt32),
-            \\    instruction_type String,
-            \\    parsed_data String
-            \\) ENGINE = MergeTree()
-            \\ORDER BY (network, slot, signature, instruction_index)
-        );
+        for (view_statements) |statement| {
+            self.executeQuery(statement) catch |err| {
+                std.log.warn("Failed to create materialized view: {any}", .{err});
+                // Continue even if view creation fails
+            };
+        }
 
-        try self.executeQuery(
-            \\CREATE TABLE IF NOT EXISTS accounts (
-            \\    network String,
-            \\    pubkey String,
-            \\    slot UInt64,
-            \\    block_time Int64,
-            \\    owner String,
-            \\    lamports UInt64,
-            \\    executable UInt8,
-            \\    rent_epoch UInt64,
-            \\    data_len UInt64,
-            \\    write_version UInt64
-            \\) ENGINE = MergeTree()
-            \\ORDER BY (network, slot, pubkey)
-        );
-
-        try self.executeQuery(
-            \\CREATE TABLE IF NOT EXISTS account_updates (
-            \\    network String,
-            \\    pubkey String,
-            \\    slot UInt64,
-            \\    block_time Int64,
-            \\    owner String,
-            \\    lamports UInt64,
-            \\    executable UInt8,
-            \\    rent_epoch UInt64,
-            \\    data_len UInt64,
-            \\    write_version UInt64
-            \\) ENGINE = MergeTree()
-            \\ORDER BY (network, slot, pubkey)
-        );
-
-        try self.executeQuery(
-            \\CREATE TABLE IF NOT EXISTS blocks (
-            \\    network String,
-            \\    slot UInt64,
-            \\    block_time Int64,
-            \\    block_hash String,
-            \\    parent_slot UInt64,
-            \\    parent_hash String,
-            \\    block_height UInt64,
-            \\    transaction_count UInt32,
-            \\    successful_transaction_count UInt32,
-            \\    failed_transaction_count UInt32,
-            \\    total_fee UInt64,
-            \\    total_compute_units UInt64
-            \\) ENGINE = MergeTree()
-            \\ORDER BY (network, slot)
-        );
+        std.log.info("All optimized tables and views created successfully", .{});
     }
 
     fn insertTransactionImpl(ptr: *anyopaque, tx: database.Transaction) database.DatabaseError!void {
@@ -404,7 +424,13 @@ pub const ClickHouseClient = struct {
             return;
         }
 
-        // Create a simple insert query for the transaction
+        // Use bulk manager if available for better performance
+        if (self.bulk_manager) |*manager| {
+            try manager.addTransaction(tx);
+            return;
+        }
+
+        // Fallback to individual insert
         const query = try std.fmt.allocPrint(self.allocator, 
             \\INSERT INTO transactions VALUES ('{s}', '{s}', {d}, {d}, {any}, {d}, {d}, {d}, '{s}', '{s}', '{s}', '{s}', '{s}', '{s}', '{s}', '{s}', '{s}')
         , .{
@@ -623,6 +649,40 @@ pub const ClickHouseClient = struct {
             return;
         }
 
+        // Use HTTP client for optimal batch performance
+        if (self.http_client) |*client| {
+            var csv_data = std.ArrayList(u8).init(self.allocator);
+            defer csv_data.deinit();
+
+            for (transactions) |tx_json| {
+                const tx = tx_json.object;
+                const meta = tx.get("meta").?.object;
+                const message = tx.get("transaction").?.object.get("message").?.object;
+
+                const signature = tx.get("transaction").?.object.get("signatures").?.array.items[0].string;
+                const slot = tx.get("slot").?.integer;
+                const block_time = tx.get("blockTime").?.integer;
+                const success: u8 = if (meta.get("err") == null) 1 else 0;
+                const fee = meta.get("fee").?.integer;
+                const compute_units = if (meta.get("computeUnitsConsumed")) |cu| cu.integer else 0;
+                const recent_blockhash = message.get("recentBlockhash").?.string;
+
+                // Build CSV row
+                try csv_data.writer().print(
+                    \\"{s}","{s}",{d},{d},{d},{d},{d},{d},"{s}","[]","[]","[]","[]","[]","","",""
+                    \\
+                , .{
+                    network_name, signature, slot, block_time, success, fee,
+                    compute_units, 0, recent_blockhash
+                });
+            }
+
+            try client.bulkInsertCSV("transactions", csv_data.items);
+            std.log.info("Successfully bulk inserted {d} transactions via CSV", .{transactions.len});
+            return;
+        }
+
+        // Fallback to original implementation
         try self.connect();
 
         var arena = std.heap.ArenaAllocator.init(self.allocator);
@@ -957,4 +1017,98 @@ pub const ClickHouseClient = struct {
             std.log.info("SecurityAnalytics database operation: events={d}", .{analytics.total_events_24h});
         }
     }
+
+    /// Flush all pending bulk operations
+    pub fn flushBulkOperations(self: *Self) !void {
+        if (self.bulk_manager) |*manager| {
+            try manager.flushAll();
+            std.log.info("Flushed all bulk operations");
+        }
+    }
+
+    /// Get bulk operation statistics
+    pub fn getBulkStats(self: *Self) ?bulk_insert.BufferStats {
+        if (self.bulk_manager) |*manager| {
+            return manager.getBufferStats();
+        }
+        return null;
+    }
+
+    /// Optimize all tables for better query performance
+    pub fn optimizeAllTables(self: *Self) !void {
+        if (self.http_client) |*client| {
+            const tables = [_][]const u8{
+                "transactions", "blocks", "instructions", "accounts",
+                "token_accounts", "token_transfers", "pool_swaps",
+                "nft_mints", "security_events"
+            };
+            
+            for (tables) |table| {
+                client.optimizeTable(table) catch |err| {
+                    std.log.warn("Failed to optimize table {s}: {}", .{ table, err });
+                };
+            }
+            std.log.info("Completed table optimization");
+        }
+    }
+
+    /// Get comprehensive database statistics
+    pub fn getDatabaseMetrics(self: *Self) !DatabaseMetrics {
+        if (self.http_client) |*client| {
+            const stats = try client.getDatabaseStats();
+            
+            return DatabaseMetrics{
+                .total_rows = stats.total_rows,
+                .total_bytes = stats.total_bytes,
+                .table_count = stats.table_count,
+                .bulk_stats = self.getBulkStats(),
+            };
+        }
+        
+        return DatabaseMetrics{
+            .total_rows = 0,
+            .total_bytes = 0,
+            .table_count = 0,
+            .bulk_stats = self.getBulkStats(),
+        };
+    }
+
+    /// Check system health and performance
+    pub fn healthCheck(self: *Self) !HealthStatus {
+        if (self.http_client) |*client| {
+            // Test connection
+            client.ping() catch |err| {
+                return HealthStatus{
+                    .connection_ok = false,
+                    .last_error = err,
+                    .bulk_buffer_size = if (self.getBulkStats()) |stats| stats.total_buffered_rows else 0,
+                };
+            };
+
+            return HealthStatus{
+                .connection_ok = true,
+                .last_error = null,
+                .bulk_buffer_size = if (self.getBulkStats()) |stats| stats.total_buffered_rows else 0,
+            };
+        }
+        
+        return HealthStatus{
+            .connection_ok = self.stream != null,
+            .last_error = null,
+            .bulk_buffer_size = 0,
+        };
+    }
+};
+
+pub const DatabaseMetrics = struct {
+    total_rows: u64,
+    total_bytes: u64,
+    table_count: u32,
+    bulk_stats: ?bulk_insert.BufferStats,
+};
+
+pub const HealthStatus = struct {
+    connection_ok: bool,
+    last_error: ?anyerror,
+    bulk_buffer_size: usize,
 };
