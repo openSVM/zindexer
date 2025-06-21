@@ -38,6 +38,8 @@ pub const QuestDBClient = struct {
         .insertAccountActivityFn = insertAccountActivityImpl,
         .insertInstructionFn = insertInstructionImpl,
         .insertAccountFn = insertAccountImpl,
+        .insertBlockFn = insertBlockImpl,
+        .updateBlockStatsFn = updateBlockStatsImpl,
         .getDatabaseSizeFn = getDatabaseSizeImpl,
         .getTableSizeFn = getTableSizeImpl,
     };
@@ -335,4 +337,39 @@ pub const QuestDBClient = struct {
 
     // Account table operations
     pub usingnamespace account;
+
+    /// Implementation for insertBlock vtable function
+    fn insertBlockImpl(self: *anyopaque, block: database.Block) database.DatabaseError!void {
+        const client = @as(*Self, @alignCast(@ptrCast(self)));
+        
+        if (client.logging_only) {
+            std.log.info("INSERT Block: network={s}, slot={d}, time={d}, txs={d}", .{
+                block.network, block.slot, block.block_time, block.transaction_count
+            });
+            return;
+        }
+
+        // QuestDB uses ILP (InfluxDB Line Protocol) for inserts
+        // For now, just log since ILP client is not implemented
+        std.log.info("QuestDB Block Insert: network={s}, slot={d}, time={d}", .{
+            block.network, block.slot, block.block_time
+        });
+    }
+
+    /// Implementation for updateBlockStats vtable function
+    fn updateBlockStatsImpl(self: *anyopaque, stats: database.BlockStats) database.DatabaseError!void {
+        const client = @as(*Self, @alignCast(@ptrCast(self)));
+        
+        if (client.logging_only) {
+            std.log.info("UPDATE Block Stats: network={s}, slot={d}, success={d}, failed={d}", .{
+                stats.network, stats.slot, stats.successful_transaction_count, stats.failed_transaction_count
+            });
+            return;
+        }
+
+        // QuestDB block stats update
+        std.log.info("QuestDB Block Stats Update: network={s}, slot={d}", .{
+            stats.network, stats.slot
+        });
+    }
 };

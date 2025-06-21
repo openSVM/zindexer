@@ -316,6 +316,19 @@ pub const RpcClient = struct {
         return names.toOwnedSlice();
     }
 
+    pub fn getAvailableNetworks(self: *Self) []const []const u8 {
+        var names = self.allocator.alloc([]const u8, self.networks.count()) catch return &[_][]const u8{};
+        
+        var i: usize = 0;
+        var it = self.networks.keyIterator();
+        while (it.next()) |key| {
+            names[i] = key.*;
+            i += 1;
+        }
+        
+        return names;
+    }
+
     const Self = @This();
 };
 

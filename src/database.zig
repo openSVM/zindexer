@@ -102,6 +102,31 @@ pub const AccountActivity = struct {
     fee_paid: u64,
 };
 
+pub const Block = struct {
+    network: []const u8,
+    slot: u64,
+    block_time: i64,
+    block_hash: []const u8,
+    parent_slot: u64,
+    parent_hash: []const u8,
+    block_height: u64,
+    transaction_count: u32,
+    successful_transaction_count: u32,
+    failed_transaction_count: u32,
+    total_fee: u64,
+    total_compute_units: u64,
+    rewards: []const f64,
+};
+
+pub const BlockStats = struct {
+    network: []const u8,
+    slot: u64,
+    successful_transaction_count: u32,
+    failed_transaction_count: u32,
+    total_fee: u64,
+    total_compute_units: u64,
+};
+
 /// Database client interface that all database implementations must follow
 pub const DatabaseClient = struct {
     /// Pointer to the implementation's vtable
@@ -119,6 +144,8 @@ pub const DatabaseClient = struct {
         insertAccountActivityFn: *const fn (self: *anyopaque, activity: AccountActivity) DatabaseError!void,
         insertInstructionFn: *const fn (self: *anyopaque, instruction: Instruction) DatabaseError!void,
         insertAccountFn: *const fn (self: *anyopaque, account: Account) DatabaseError!void,
+        insertBlockFn: *const fn (self: *anyopaque, block: Block) DatabaseError!void,
+        updateBlockStatsFn: *const fn (self: *anyopaque, stats: BlockStats) DatabaseError!void,
         getDatabaseSizeFn: *const fn (self: *anyopaque) DatabaseError!usize,
         getTableSizeFn: *const fn (self: *anyopaque, table_name: []const u8) DatabaseError!usize,
     };
@@ -171,6 +198,16 @@ pub const DatabaseClient = struct {
     /// Insert an account record
     pub fn insertAccount(self: *DatabaseClient, account: Account) DatabaseError!void {
         return self.vtable.insertAccountFn(self.toAnyopaque(), account);
+    }
+    
+    /// Insert block data
+    pub fn insertBlock(self: *DatabaseClient, block: Block) DatabaseError!void {
+        return self.vtable.insertBlockFn(self.toAnyopaque(), block);
+    }
+    
+    /// Update block statistics
+    pub fn updateBlockStats(self: *DatabaseClient, stats: BlockStats) DatabaseError!void {
+        return self.vtable.updateBlockStatsFn(self.toAnyopaque(), stats);
     }
     
     /// Get database size

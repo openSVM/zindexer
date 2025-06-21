@@ -34,6 +34,8 @@ pub const ClickHouseClient = struct {
         .insertAccountActivityFn = insertAccountActivityImpl,
         .insertInstructionFn = insertInstructionImpl,
         .insertAccountFn = insertAccountImpl,
+        .insertBlockFn = insertBlockImpl,
+        .updateBlockStatsFn = updateBlockStatsImpl,
         .getDatabaseSizeFn = getDatabaseSizeImpl,
         .getTableSizeFn = getTableSizeImpl,
     };
@@ -343,6 +345,24 @@ pub const ClickHouseClient = struct {
             \\) ENGINE = MergeTree()
             \\ORDER BY (network, slot, pubkey)
         );
+
+        try self.executeQuery(
+            \\CREATE TABLE IF NOT EXISTS blocks (
+            \\    network String,
+            \\    slot UInt64,
+            \\    block_time Int64,
+            \\    block_hash String,
+            \\    parent_slot UInt64,
+            \\    parent_hash String,
+            \\    block_height UInt64,
+            \\    transaction_count UInt32,
+            \\    successful_transaction_count UInt32,
+            \\    failed_transaction_count UInt32,
+            \\    total_fee UInt64,
+            \\    total_compute_units UInt64
+            \\) ENGINE = MergeTree()
+            \\ORDER BY (network, slot)
+        );
     }
 
     fn insertTransactionImpl(ptr: *anyopaque, tx: database.Transaction) database.DatabaseError!void {
@@ -610,5 +630,75 @@ pub const ClickHouseClient = struct {
         }
 
         try self.executeQuery(query.items);
+    }
+
+    /// Implementation for insertBlock vtable function
+    fn insertBlockImpl(self: *anyopaque, block: database.Block) database.DatabaseError!void {
+        const client = @as(*Self, @alignCast(@ptrCast(self)));
+        
+        if (client.logging_only) {
+            std.log.info("INSERT Block: network={s}, slot={d}, time={d}, txs={d}", .{
+                block.network, block.slot, block.block_time, block.transaction_count
+            });
+            return;
+        }
+
+        var query = std.ArrayList(u8).init(client.allocator);
+        defer query.deinit();
+
+        try query.appendSlice("INSERT INTO blocks (network, slot, block_time, block_hash, parent_slot, parent_hash, block_height, transaction_count, successful_transaction_count, failed_transaction_count, total_fee, total_compute_units) VALUES ('");
+        try query.appendSlice(block.network);
+        try query.appendSlice("', ");
+        try std.fmt.format(query.writer(), "{d}, {d}", .{ block.slot, block.block_time });
+        try query.appendSlice(", '");
+        try query.appendSlice(block.block_hash);
+        try query.appendSlice("', ");
+        try std.fmt.format(query.writer(), "{d}", .{block.parent_slot});
+        try query.appendSlice(", '");
+        try query.appendSlice(block.parent_hash);
+        try query.appendSlice("', ");
+        try std.fmt.format(query.writer(), "{d}, {d}, {d}, {d}, {d}, {d}", .{
+            block.block_height, block.transaction_count, block.successful_transaction_count,
+            block.failed_transaction_count, block.total_fee, block.total_compute_units
+        });
+        try query.appendSlice(")");
+
+        client.executeQuery(query.items) catch |err| switch (err) {
+            error.OutOfMemory => return error.DatabaseError,
+            else => return error.DatabaseError,
+        };
+    }
+
+    /// Implementation for updateBlockStats vtable function
+    fn updateBlockStatsImpl(self: *anyopaque, stats: database.BlockStats) database.DatabaseError!void {
+        const client = @as(*Self, @alignCast(@ptrCast(self)));
+        
+        if (client.logging_only) {
+            std.log.info("UPDATE Block Stats: network={s}, slot={d}, success={d}, failed={d}", .{
+                stats.network, stats.slot, stats.successful_transaction_count, stats.failed_transaction_count
+            });
+            return;
+        }
+
+        var query = std.ArrayList(u8).init(client.allocator);
+        defer query.deinit();
+
+        try query.appendSlice("ALTER TABLE blocks UPDATE successful_transaction_count = ");
+        try std.fmt.format(query.writer(), "{d}", .{stats.successful_transaction_count});
+        try query.appendSlice(", failed_transaction_count = ");
+        try std.fmt.format(query.writer(), "{d}", .{stats.failed_transaction_count});
+        try query.appendSlice(", total_fee = ");
+        try std.fmt.format(query.writer(), "{d}", .{stats.total_fee});
+        try query.appendSlice(", total_compute_units = ");
+        try std.fmt.format(query.writer(), "{d}", .{stats.total_compute_units});
+        try query.appendSlice(" WHERE network = '");
+        try query.appendSlice(stats.network);
+        try query.appendSlice("' AND slot = ");
+        try std.fmt.format(query.writer(), "{d}", .{stats.slot});
+
+        client.executeQuery(query.items) catch |err| switch (err) {
+            error.OutOfMemory => return error.DatabaseError,
+            else => return error.DatabaseError,
+        };
     }
 };
