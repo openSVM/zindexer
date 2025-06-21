@@ -1,7 +1,8 @@
 .{
-    .name = "zindexer",
+    .name = .zindexer,
     .version = "0.1.0",
-    .minimum_zig_version = "0.13.0",
+    .fingerprint = 0xe84b558b0cc5539d,
+    .minimum_zig_version = "0.14.0",
     .dependencies = .{
         // .@"c-questdb-client" = .{
         //     .url = "https://github.com/openSVM/c-questdb-client/archive/refs/heads/main.tar.gz",
