@@ -4,9 +4,6 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    // Get dependencies
-    const questdb_dep = b.dependency("c-questdb-client", .{});
-
     // Create modules with explicit dependencies
     const rpc_mod = b.addModule("rpc", .{
         .source_file = .{ .path = "src/rpc.zig" },
@@ -27,7 +24,6 @@ pub fn build(b: *std.Build) void {
         .source_file = .{ .path = "src/questdb.zig" },
         .dependencies = &.{
             .{ .name = "database", .module = database_mod },
-            .{ .name = "c-questdb-client", .module = questdb_dep.module("c-questdb-client") },
         },
     });
 

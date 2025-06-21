@@ -7,12 +7,8 @@ const types = @import("types.zig");
 
 /// Insert an instruction into QuestDB
 pub fn insertInstruction(self: *@This(), network: []const u8, signature: []const u8, slot: u64, block_time: i64, program_id: []const u8, instruction_index: u32, inner_instruction_index: ?u32, instruction_type: []const u8, parsed_data: []const u8, accounts: []const []const u8) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping instruction insert for {s}:{d}", .{signature, instruction_index});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -68,13 +64,12 @@ pub fn insertInstruction(self: *@This(), network: []const u8, signature: []const
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert instruction ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
