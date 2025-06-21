@@ -735,9 +735,13 @@ pub const Indexer = struct {
             };
 
             // NEW: Process security events with enhanced detection
-            security.processSecurityEvents(self, slot, block_time, tx_json, &slot_stats.security_events, &slot_stats.security_events, &slot_stats.total_accounts_updated) catch |err| {
+            var security_event_count: u32 = 0;
+            var critical_event_count: u32 = 0;
+            var affected_user_count: u32 = 0;
+            security.processSecurityEvents(self, slot, block_time, tx_json, &security_event_count, &critical_event_count, &affected_user_count) catch |err| {
                 std.log.err("Failed to process security events in slot {d}: {any}", .{ slot, err });
             };
+            slot_stats.security_events += security_event_count;
         }
     }
 };

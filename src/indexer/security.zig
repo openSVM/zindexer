@@ -20,10 +20,10 @@ pub fn processSecurityEvents(
     // Check for suspicious patterns
     if (meta.get("err")) |err| {
         // Failed transaction analysis
-        if (err.string) |error_msg| {
-            // Analyze error message for security implications
-            if (std.mem.indexOf(u8, error_msg, "overflow") != null or
-                std.mem.indexOf(u8, error_msg, "underflow") != null) {
+        const error_msg = err.string;
+        // Analyze error message for security implications
+        if (std.mem.indexOf(u8, error_msg, "overflow") != null or
+            std.mem.indexOf(u8, error_msg, "underflow") != null) {
                 event_count.* += 1;
                 critical_count.* += 1;
                 
@@ -64,7 +64,6 @@ pub fn processSecurityEvents(
                     });
                 }
             }
-        }
     }
     
     // Check for large value transfers

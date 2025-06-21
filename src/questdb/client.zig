@@ -40,6 +40,31 @@ pub const QuestDBClient = struct {
         .insertAccountFn = insertAccountImpl,
         .insertBlockFn = insertBlockImpl,
         .updateBlockStatsFn = updateBlockStatsImpl,
+        // Token-related methods
+        .insertTokenAccountFn = insertTokenAccountImpl,
+        .insertTokenTransferFn = insertTokenTransferImpl,
+        .insertTokenHolderFn = insertTokenHolderImpl,
+        .insertTokenAnalyticsFn = insertTokenAnalyticsImpl,
+        .insertTokenProgramActivityFn = insertTokenProgramActivityImpl,
+        // NFT-related methods
+        .insertNftCollectionFn = insertNftCollectionImpl,
+        .insertNftMintFn = insertNftMintImpl,
+        .insertNftListingFn = insertNftListingImpl,
+        .insertNftSaleFn = insertNftSaleImpl,
+        .insertNftBidFn = insertNftBidImpl,
+        // DeFi-related methods
+        .insertPoolSwapFn = insertPoolSwapImpl,
+        .insertLiquidityPoolFn = insertLiquidityPoolImpl,
+        .insertDefiEventFn = insertDefiEventImpl,
+        .insertLendingMarketFn = insertLendingMarketImpl,
+        .insertLendingPositionFn = insertLendingPositionImpl,
+        .insertPerpetualMarketFn = insertPerpetualMarketImpl,
+        .insertPerpetualPositionFn = insertPerpetualPositionImpl,
+        // Security-related methods
+        .insertSecurityEventFn = insertSecurityEventImpl,
+        .insertSuspiciousAccountFn = insertSuspiciousAccountImpl,
+        .insertProgramSecurityMetricsFn = insertProgramSecurityMetricsImpl,
+        .insertSecurityAnalyticsFn = insertSecurityAnalyticsImpl,
         .getDatabaseSizeFn = getDatabaseSizeImpl,
         .getTableSizeFn = getTableSizeImpl,
     };
@@ -371,5 +396,122 @@ pub const QuestDBClient = struct {
         std.log.info("QuestDB Block Stats Update: network={s}, slot={d}", .{
             stats.network, stats.slot
         });
+    }
+
+    // Token-related implementations
+    fn insertTokenAccountImpl(self: *anyopaque, token_account: database.TokenAccount) database.DatabaseError!void {
+        const client = @as(*Self, @alignCast(@ptrCast(self)));
+        if (client.logging_only) {
+            std.log.info("INSERT TokenAccount: mint={s}, owner={s}, amount={d}", .{token_account.mint_address, token_account.owner, token_account.amount});
+        } else {
+            std.log.info("QuestDB TokenAccount: mint={s}, amount={d}", .{token_account.mint_address, token_account.amount});
+        }
+    }
+
+    fn insertTokenTransferImpl(self: *anyopaque, transfer: database.TokenTransfer) database.DatabaseError!void {
+        const client = @as(*Self, @alignCast(@ptrCast(self)));
+        if (client.logging_only) {
+            std.log.info("INSERT TokenTransfer: mint={s}, from={s}, to={s}, amount={d}", .{transfer.mint_address, transfer.from_account, transfer.to_account, transfer.amount});
+        } else {
+            std.log.info("QuestDB TokenTransfer: mint={s}, amount={d}", .{transfer.mint_address, transfer.amount});
+        }
+    }
+
+    fn insertTokenHolderImpl(self: *anyopaque, holder: database.TokenHolder) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB TokenHolder: mint={s}, owner={s}, balance={d}", .{holder.mint_address, holder.owner, holder.balance});
+    }
+
+    fn insertTokenAnalyticsImpl(self: *anyopaque, analytics: database.TokenAnalytics) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB TokenAnalytics: mint={s}, transfers={d}", .{analytics.mint_address, analytics.transfer_count});
+    }
+
+    fn insertTokenProgramActivityImpl(self: *anyopaque, activity: database.TokenProgramActivity) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB TokenProgramActivity: program={s}, type={s}", .{activity.program_id, activity.instruction_type});
+    }
+
+    // NFT implementations
+    fn insertNftCollectionImpl(self: *anyopaque, collection: database.NftCollection) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB NftCollection: addr={s}, name={s}", .{collection.collection_address, collection.name});
+    }
+
+    fn insertNftMintImpl(self: *anyopaque, mint: database.NftMint) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB NftMint: mint={s}, owner={s}", .{mint.mint_address, mint.owner});
+    }
+
+    fn insertNftListingImpl(self: *anyopaque, listing: database.NftListing) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB NftListing: mint={s}, price={d}", .{listing.mint_address, listing.price_sol});
+    }
+
+    fn insertNftSaleImpl(self: *anyopaque, sale: database.NftSale) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB NftSale: mint={s}, price={d}", .{sale.mint_address, sale.price_sol});
+    }
+
+    fn insertNftBidImpl(self: *anyopaque, bid: database.NftBid) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB NftBid: mint={s}, price={d}", .{bid.mint_address, bid.price_sol});
+    }
+
+    // DeFi implementations
+    fn insertPoolSwapImpl(self: *anyopaque, swap: database.PoolSwap) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB PoolSwap: pool={s}, in={d}, out={d}", .{swap.pool_address, swap.token_in_amount, swap.token_out_amount});
+    }
+
+    fn insertLiquidityPoolImpl(self: *anyopaque, pool: database.LiquidityPool) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB LiquidityPool: addr={s}, tvl={d}", .{pool.pool_address, pool.tvl_usd});
+    }
+
+    fn insertDefiEventImpl(self: *anyopaque, event: database.DefiEvent) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB DefiEvent: type={s}, protocol={s}", .{event.event_type, event.protocol_id});
+    }
+
+    fn insertLendingMarketImpl(self: *anyopaque, market: database.LendingMarket) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB LendingMarket: addr={s}, tvl={d}", .{market.market_address, market.tvl_usd});
+    }
+
+    fn insertLendingPositionImpl(self: *anyopaque, position: database.LendingPosition) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB LendingPosition: addr={s}, health={d}", .{position.position_address, position.health_factor});
+    }
+
+    fn insertPerpetualMarketImpl(self: *anyopaque, market: database.PerpetualMarket) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB PerpetualMarket: addr={s}, volume={d}", .{market.market_address, market.volume_24h_usd});
+    }
+
+    fn insertPerpetualPositionImpl(self: *anyopaque, position: database.PerpetualPosition) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB PerpetualPosition: addr={s}, pnl={d}", .{position.position_address, position.unrealized_pnl});
+    }
+
+    // Security implementations
+    fn insertSecurityEventImpl(self: *anyopaque, event: database.SecurityEvent) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB SecurityEvent: type={s}, severity={s}", .{event.event_type, event.severity});
+    }
+
+    fn insertSuspiciousAccountImpl(self: *anyopaque, suspicious_account: database.SuspiciousAccount) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB SuspiciousAccount: addr={s}, risk={d}", .{suspicious_account.account_address, suspicious_account.risk_score});
+    }
+
+    fn insertProgramSecurityMetricsImpl(self: *anyopaque, metrics: database.ProgramSecurityMetrics) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB ProgramSecurityMetrics: program={s}, vulns={d}", .{metrics.program_id, metrics.vulnerability_count});
+    }
+
+    fn insertSecurityAnalyticsImpl(self: *anyopaque, analytics: database.SecurityAnalytics) database.DatabaseError!void {
+        _ = self;
+        std.log.info("QuestDB SecurityAnalytics: events={d}, critical={d}", .{analytics.total_events_24h, analytics.critical_events_24h});
     }
 };
