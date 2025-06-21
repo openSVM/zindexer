@@ -166,19 +166,19 @@ pub fn createDatabaseClient(
 ) DatabaseError!*DatabaseClient {
     switch (db_type) {
         .ClickHouse => {
-            const clickhouse = @import("clickhouse.zig");
-            var client = try allocator.create(clickhouse.ClickHouseClient);
+            const ch = @import("clickhouse.zig");
+            const client = try allocator.create(ch.ClickHouseClient);
             errdefer allocator.destroy(client);
             
-            client.* = try clickhouse.ClickHouseClient.init(allocator, url, user, password, database);
+            client.* = try ch.ClickHouseClient.init(allocator, url, user, password, database);
             return @ptrCast(client);
         },
         .QuestDB => {
-            const questdb = @import("questdb.zig");
-            var client = try allocator.create(questdb.QuestDBClient);
+            const qdb = @import("questdb.zig");
+            const client = try allocator.create(qdb.QuestDBClient);
             errdefer allocator.destroy(client);
             
-            client.* = try questdb.QuestDBClient.init(allocator, url, user, password, database);
+            client.* = try qdb.QuestDBClient.init(allocator, url, user, password, database);
             return @ptrCast(client);
         },
     }

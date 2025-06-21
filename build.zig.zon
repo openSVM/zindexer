@@ -1,12 +1,13 @@
 .{
-    .name = "zindexer",
+    .name = .zindexer,
     .version = "0.1.0",
+    .fingerprint = 0xe84b558b6c2eb0c2,
     .minimum_zig_version = "0.14.0",
     .dependencies = .{
-        .@"c-questdb-client" = .{
-            .url = "https://github.com/openSVM/c-questdb-client/archive/refs/heads/main.tar.gz",
-            .hash = "1220ffdabd90f696e3d850485b2eae8df806173a9ab6f50ae4fbb708928d06037145",
-        },
+        // .@"c-questdb-client" = .{
+        //     .url = "https://github.com/openSVM/c-questdb-client/archive/refs/heads/main.tar.gz",
+        //     .hash = "1220ffdabd90f696e3d850485b2eae8df806173a9ab6f50ae4fbb708928d06037145",
+        // },
     },
     .paths = .{
         "src",

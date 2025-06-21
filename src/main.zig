@@ -12,7 +12,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     // Parse command line arguments
-    var args = try std.process.argsAlloc(allocator);
+    const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
     var mode: indexer.IndexerMode = .RealTime;
