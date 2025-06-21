@@ -1,19 +1,14 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const types = @import("types.zig");
-const c_questdb = @import("c-questdb-client");
 
 // Security-related operations for QuestDB
 // These would be similar to the core.zig implementation but using ILP format
 
 /// Insert a security event into QuestDB
 pub fn insertSecurityEvent(self: *@This(), network: []const u8, event_type: []const u8, slot: u64, block_time: i64, signature: []const u8, program_id: []const u8, account_address: []const u8, severity: []const u8, description: []const u8) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping security event insert for {s}", .{signature});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -62,13 +57,12 @@ pub fn insertSecurityEvent(self: *@This(), network: []const u8, event_type: []co
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert security event ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -77,12 +71,8 @@ pub fn insertSecurityEvent(self: *@This(), network: []const u8, event_type: []co
 
 /// Insert suspicious account into QuestDB
 pub fn insertSuspiciousAccount(self: *@This(), network: []const u8, account_address: []const u8, slot: u64, block_time: i64, risk_score: f64, risk_factors: []const []const u8, associated_events: []const []const u8, linked_accounts: []const []const u8, last_activity_slot: u64, total_volume_usd: f64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping suspicious account insert for {s}", .{account_address});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -138,13 +128,12 @@ pub fn insertSuspiciousAccount(self: *@This(), network: []const u8, account_addr
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert suspicious account ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -153,12 +142,8 @@ pub fn insertSuspiciousAccount(self: *@This(), network: []const u8, account_addr
 
 /// Insert program security metrics into QuestDB
 pub fn insertProgramSecurityMetrics(self: *@This(), network: []const u8, program_id: []const u8, slot: u64, block_time: i64, audit_status: []const u8, vulnerability_count: u32, critical_vulnerabilities: u32, high_vulnerabilities: u32, medium_vulnerabilities: u32, low_vulnerabilities: u32, last_audit_date: i64, auditor: []const u8, tvl_at_risk_usd: f64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping program security metrics insert for {s}", .{program_id});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -206,13 +191,12 @@ pub fn insertProgramSecurityMetrics(self: *@This(), network: []const u8, program
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert program security metrics ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -221,12 +205,8 @@ pub fn insertProgramSecurityMetrics(self: *@This(), network: []const u8, program
 
 /// Insert security analytics into QuestDB
 pub fn insertSecurityAnalytics(self: *@This(), network: []const u8, slot: u64, block_time: i64, category: []const u8, total_events_24h: u64, critical_events_24h: u64, affected_users_24h: u64, total_loss_usd: f64, average_risk_score: f64, unique_attack_vectors: u64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping security analytics insert", .{});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -267,13 +247,12 @@ pub fn insertSecurityAnalytics(self: *@This(), network: []const u8, slot: u64, b
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert security analytics ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -282,12 +261,8 @@ pub fn insertSecurityAnalytics(self: *@This(), network: []const u8, slot: u64, b
 
 /// Insert risk assessment into QuestDB
 pub fn insertRiskAssessment(self: *@This(), network: []const u8, program_id: []const u8, slot: u64, block_time: i64, risk_category: []const u8, risk_score: f64, risk_factors: []const []const u8, mitigation_steps: []const []const u8, impact_score: f64, likelihood_score: f64, tvl_exposed_usd: f64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping risk assessment insert for {s}", .{program_id});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -340,13 +315,12 @@ pub fn insertRiskAssessment(self: *@This(), network: []const u8, program_id: []c
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert risk assessment ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -355,12 +329,8 @@ pub fn insertRiskAssessment(self: *@This(), network: []const u8, program_id: []c
 
 /// Insert security alert into QuestDB
 pub fn insertSecurityAlert(self: *@This(), network: []const u8, alert_id: []const u8, slot: u64, block_time: i64, alert_type: []const u8, severity: []const u8, description: []const u8, affected_accounts: []const []const u8, affected_programs: []const []const u8, loss_amount_usd: f64, resolved: bool) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping security alert insert for {s}", .{alert_id});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -421,13 +391,12 @@ pub fn insertSecurityAlert(self: *@This(), network: []const u8, alert_id: []cons
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert security alert ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };

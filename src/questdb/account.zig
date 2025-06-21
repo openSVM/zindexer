@@ -1,19 +1,14 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const types = @import("types.zig");
-const c_questdb = @import("c-questdb-client");
 
 // Account-related operations for QuestDB
 // These would be similar to the core.zig implementation but using ILP format
 
 /// Insert an account into QuestDB
 pub fn insertAccount(self: *@This(), network: []const u8, pubkey: []const u8, slot: u64, block_time: i64, owner: []const u8, lamports: u64, executable: u8, rent_epoch: u64, data_len: u64, write_version: u64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping account insert for {s}", .{pubkey});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -55,13 +50,12 @@ pub fn insertAccount(self: *@This(), network: []const u8, pubkey: []const u8, sl
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert account ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -70,12 +64,8 @@ pub fn insertAccount(self: *@This(), network: []const u8, pubkey: []const u8, sl
 
 /// Insert an account update into QuestDB
 pub fn insertAccountUpdate(self: *@This(), network: []const u8, pubkey: []const u8, slot: u64, block_time: i64, owner: []const u8, lamports: u64, executable: u8, rent_epoch: u64, data_len: u64, write_version: u64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping account update insert for {s}", .{pubkey});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -117,13 +107,12 @@ pub fn insertAccountUpdate(self: *@This(), network: []const u8, pubkey: []const 
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert account update ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -132,12 +121,8 @@ pub fn insertAccountUpdate(self: *@This(), network: []const u8, pubkey: []const 
 
 /// Insert account activity into QuestDB (equivalent to insertAccountActivity in ClickHouse)
 pub fn insertAccountActivity(self: *@This(), network: []const u8, pubkey: []const u8, slot: u64, block_time: i64, program_id: []const u8, write_count: u32, cu_consumed: u64, fee_paid: u64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping account activity insert for {s}", .{pubkey});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -171,13 +156,12 @@ pub fn insertAccountActivity(self: *@This(), network: []const u8, pubkey: []cons
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert account activity ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };

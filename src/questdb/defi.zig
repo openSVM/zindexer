@@ -1,19 +1,14 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const types = @import("types.zig");
-const c_questdb = @import("c-questdb-client");
 
 // DeFi-related operations for QuestDB
 // These would be similar to the core.zig implementation but using ILP format
 
 /// Insert a liquidity pool into QuestDB
 pub fn insertLiquidityPool(self: *@This(), network: []const u8, pool_address: []const u8, slot: u64, block_time: i64, protocol: []const u8, token_a_mint: []const u8, token_b_mint: []const u8, token_a_amount: u64, token_b_amount: u64, lp_token_mint: []const u8, lp_token_supply: u64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping liquidity pool insert for {s}", .{pool_address});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -59,13 +54,12 @@ pub fn insertLiquidityPool(self: *@This(), network: []const u8, pool_address: []
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert liquidity pool ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -74,12 +68,8 @@ pub fn insertLiquidityPool(self: *@This(), network: []const u8, pool_address: []
 
 /// Insert a pool swap into QuestDB
 pub fn insertPoolSwap(self: *@This(), network: []const u8, signature: []const u8, slot: u64, block_time: i64, pool_address: []const u8, user_account: []const u8, token_in_mint: []const u8, token_out_mint: []const u8, token_in_amount: u64, token_out_amount: u64, token_in_price_usd: f64, token_out_price_usd: f64, fee_amount: u64, program_id: []const u8) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping pool swap insert for {s}", .{signature});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -133,13 +123,12 @@ pub fn insertPoolSwap(self: *@This(), network: []const u8, signature: []const u8
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert pool swap ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -148,12 +137,8 @@ pub fn insertPoolSwap(self: *@This(), network: []const u8, signature: []const u8
 
 /// Insert lending market into QuestDB
 pub fn insertLendingMarket(self: *@This(), network: []const u8, market_address: []const u8, slot: u64, block_time: i64, protocol_id: []const u8, asset_mint: []const u8, c_token_mint: []const u8, total_deposits: u64, total_borrows: u64, deposit_rate: f64, borrow_rate: f64, utilization_rate: f64, liquidation_threshold: f64, ltv_ratio: f64, asset_price_usd: f64, tvl_usd: f64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping lending market insert for {s}", .{market_address});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -213,13 +198,12 @@ pub fn insertLendingMarket(self: *@This(), network: []const u8, market_address: 
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert lending market ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -228,12 +212,8 @@ pub fn insertLendingMarket(self: *@This(), network: []const u8, market_address: 
 
 /// Insert lending position into QuestDB
 pub fn insertLendingPosition(self: *@This(), network: []const u8, position_address: []const u8, slot: u64, block_time: i64, market_address: []const u8, owner: []const u8, deposit_amount: u64, borrow_amount: u64, collateral_amount: u64, liquidation_threshold: f64, health_factor: f64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping lending position insert for {s}", .{position_address});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -275,13 +255,12 @@ pub fn insertLendingPosition(self: *@This(), network: []const u8, position_addre
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert lending position ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -290,12 +269,8 @@ pub fn insertLendingPosition(self: *@This(), network: []const u8, position_addre
 
 /// Insert perpetual market into QuestDB
 pub fn insertPerpetualMarket(self: *@This(), network: []const u8, market_address: []const u8, slot: u64, block_time: i64, protocol_id: []const u8, base_token_mint: []const u8, quote_token_mint: []const u8, base_price_usd: f64, mark_price_usd: f64, index_price_usd: f64, funding_rate: f64, open_interest: u64, volume_24h_usd: f64, base_deposit_total: u64, quote_deposit_total: u64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping perpetual market insert for {s}", .{market_address});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -352,13 +327,12 @@ pub fn insertPerpetualMarket(self: *@This(), network: []const u8, market_address
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert perpetual market ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -367,12 +341,8 @@ pub fn insertPerpetualMarket(self: *@This(), network: []const u8, market_address
 
 /// Insert perpetual position into QuestDB
 pub fn insertPerpetualPosition(self: *@This(), network: []const u8, position_address: []const u8, slot: u64, block_time: i64, market_address: []const u8, owner: []const u8, position_size: i64, entry_price: f64, liquidation_price: f64, unrealized_pnl: f64, realized_pnl: f64, collateral_amount: u64, leverage: f64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping perpetual position insert for {s}", .{position_address});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -420,13 +390,12 @@ pub fn insertPerpetualPosition(self: *@This(), network: []const u8, position_add
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert perpetual position ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -435,12 +404,8 @@ pub fn insertPerpetualPosition(self: *@This(), network: []const u8, position_add
 
 /// Insert DeFi event into QuestDB
 pub fn insertDefiEvent(self: *@This(), network: []const u8, signature: []const u8, slot: u64, block_time: i64, protocol_id: []const u8, event_type: []const u8, user_account: []const u8, market_address: []const u8, token_a_mint: []const u8, token_b_mint: []const u8, token_a_amount: u64, token_b_amount: u64, token_a_price_usd: f64, token_b_price_usd: f64, fee_amount: u64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping DeFi event insert for {s}", .{signature});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -498,13 +463,12 @@ pub fn insertDefiEvent(self: *@This(), network: []const u8, signature: []const u
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert DeFi event ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -513,12 +477,8 @@ pub fn insertDefiEvent(self: *@This(), network: []const u8, signature: []const u
 
 /// Insert DeFi analytics into QuestDB
 pub fn insertDefiAnalytics(self: *@This(), network: []const u8, protocol_id: []const u8, slot: u64, block_time: i64, tvl_usd: f64, volume_24h_usd: f64, fee_24h_usd: f64, unique_users_24h: u64, transaction_count_24h: u64, revenue_24h_usd: f64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping DeFi analytics insert for {s}", .{protocol_id});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -559,13 +519,12 @@ pub fn insertDefiAnalytics(self: *@This(), network: []const u8, protocol_id: []c
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert DeFi analytics ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };

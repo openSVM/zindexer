@@ -1,19 +1,14 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const types = @import("types.zig");
-const c_questdb = @import("c-questdb-client");
 
 // NFT-related operations for QuestDB
 // These would be similar to the core.zig implementation but using ILP format
 
 /// Insert an NFT collection into QuestDB
 pub fn insertNftCollection(self: *@This(), network: []const u8, collection_address: []const u8, slot: u64, block_time: i64, name: []const u8, symbol: []const u8, uri: []const u8, seller_fee_basis_points: u16, creator_addresses: []const []const u8, creator_shares: []const u8) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping NFT collection insert for {s}", .{collection_address});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -63,13 +58,12 @@ pub fn insertNftCollection(self: *@This(), network: []const u8, collection_addre
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert NFT collection ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -78,12 +72,8 @@ pub fn insertNftCollection(self: *@This(), network: []const u8, collection_addre
 
 /// Insert NFT mint into QuestDB
 pub fn insertNftMint(self: *@This(), network: []const u8, mint_address: []const u8, slot: u64, block_time: i64, collection_address: []const u8, owner: []const u8, creator_address: []const u8, name: []const u8, symbol: []const u8, uri: []const u8, seller_fee_basis_points: u16, primary_sale_happened: bool, is_mutable: bool, edition_nonce: ?u64, token_standard: []const u8, uses: ?[]const u8) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping NFT mint insert for {s}", .{mint_address});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -152,13 +142,12 @@ pub fn insertNftMint(self: *@This(), network: []const u8, mint_address: []const 
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert NFT mint ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -167,12 +156,8 @@ pub fn insertNftMint(self: *@This(), network: []const u8, mint_address: []const 
 
 /// Insert NFT listing into QuestDB
 pub fn insertNftListing(self: *@This(), network: []const u8, listing_address: []const u8, slot: u64, block_time: i64, marketplace: []const u8, mint_address: []const u8, collection_address: []const u8, seller: []const u8, price_sol: f64, expiry_time: i64, cancelled: bool) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping NFT listing insert for {s}", .{listing_address});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -216,13 +201,12 @@ pub fn insertNftListing(self: *@This(), network: []const u8, listing_address: []
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert NFT listing ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -231,12 +215,8 @@ pub fn insertNftListing(self: *@This(), network: []const u8, listing_address: []
 
 /// Insert NFT sale into QuestDB
 pub fn insertNftSale(self: *@This(), network: []const u8, signature: []const u8, slot: u64, block_time: i64, marketplace: []const u8, mint_address: []const u8, collection_address: []const u8, seller: []const u8, buyer: []const u8, price_sol: f64, price_usd: f64, fee_amount: f64, royalty_amount: f64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping NFT sale insert for {s}", .{signature});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -287,13 +267,12 @@ pub fn insertNftSale(self: *@This(), network: []const u8, signature: []const u8,
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert NFT sale ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -302,12 +281,8 @@ pub fn insertNftSale(self: *@This(), network: []const u8, signature: []const u8,
 
 /// Insert NFT bid into QuestDB
 pub fn insertNftBid(self: *@This(), network: []const u8, bid_address: []const u8, slot: u64, block_time: i64, marketplace: []const u8, mint_address: []const u8, collection_address: []const u8, bidder: []const u8, price_sol: f64, expiry_time: i64, cancelled: bool) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping NFT bid insert for {s}", .{bid_address});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -351,13 +326,12 @@ pub fn insertNftBid(self: *@This(), network: []const u8, bid_address: []const u8
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert NFT bid ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -366,12 +340,8 @@ pub fn insertNftBid(self: *@This(), network: []const u8, bid_address: []const u8
 
 /// Insert NFT activity into QuestDB
 pub fn insertNftActivity(self: *@This(), network: []const u8, signature: []const u8, slot: u64, block_time: i64, activity_type: []const u8, marketplace: []const u8, mint_address: []const u8, collection_address: []const u8, user_account: []const u8, price_sol: f64, price_usd: f64, success: bool) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping NFT activity insert for {s}", .{signature});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -419,13 +389,12 @@ pub fn insertNftActivity(self: *@This(), network: []const u8, signature: []const
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert NFT activity ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -434,12 +403,8 @@ pub fn insertNftActivity(self: *@This(), network: []const u8, signature: []const
 
 /// Insert NFT analytics into QuestDB
 pub fn insertNftAnalytics(self: *@This(), network: []const u8, collection_address: []const u8, slot: u64, block_time: i64, mint_count: u64, sale_count: u64, listing_count: u64, bid_count: u64, unique_holders: u64, total_volume_sol: f64, avg_price_sol: f64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping NFT analytics insert for {s}", .{collection_address});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -483,13 +448,12 @@ pub fn insertNftAnalytics(self: *@This(), network: []const u8, collection_addres
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert NFT analytics ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };

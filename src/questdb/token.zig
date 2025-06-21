@@ -1,19 +1,14 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const types = @import("types.zig");
-const c_questdb = @import("c-questdb-client");
 
 // Token-related operations for QuestDB
 // These would be similar to the core.zig implementation but using ILP format
 
 /// Insert a token mint into QuestDB
 pub fn insertTokenMint(self: *@This(), network: []const u8, mint_address: []const u8, slot: u64, block_time: i64, owner: []const u8, supply: u64, decimals: u8, is_nft: bool) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping token mint insert for {s}", .{mint_address});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -49,13 +44,12 @@ pub fn insertTokenMint(self: *@This(), network: []const u8, mint_address: []cons
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert token mint ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -64,12 +58,8 @@ pub fn insertTokenMint(self: *@This(), network: []const u8, mint_address: []cons
 
 /// Insert a token account into QuestDB
 pub fn insertTokenAccount(self: *@This(), network: []const u8, account_address: []const u8, mint_address: []const u8, slot: u64, block_time: i64, owner: []const u8, amount: u64, delegate: ?[]const u8, delegated_amount: u64, is_initialized: bool, is_frozen: bool, is_native: bool, rent_exempt_reserve: ?u64, close_authority: ?[]const u8) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping token account insert for {s}", .{account_address});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -130,13 +120,12 @@ pub fn insertTokenAccount(self: *@This(), network: []const u8, account_address: 
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert token account ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -145,12 +134,8 @@ pub fn insertTokenAccount(self: *@This(), network: []const u8, account_address: 
 
 /// Insert a token transfer into QuestDB
 pub fn insertTokenTransfer(self: *@This(), network: []const u8, signature: []const u8, slot: u64, block_time: i64, mint_address: []const u8, from_account: []const u8, to_account: []const u8, amount: u64, decimals: u8, program_id: []const u8, instruction_type: []const u8) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping token transfer insert for {s}", .{signature});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -195,13 +180,12 @@ pub fn insertTokenTransfer(self: *@This(), network: []const u8, signature: []con
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert token transfer ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -210,12 +194,8 @@ pub fn insertTokenTransfer(self: *@This(), network: []const u8, signature: []con
 
 /// Insert token holder information into QuestDB
 pub fn insertTokenHolder(self: *@This(), network: []const u8, mint_address: []const u8, slot: u64, block_time: i64, owner: []const u8, balance: u64, balance_usd: f64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping token holder insert for {s}", .{mint_address});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -246,13 +226,12 @@ pub fn insertTokenHolder(self: *@This(), network: []const u8, mint_address: []co
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert token holder ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -261,12 +240,8 @@ pub fn insertTokenHolder(self: *@This(), network: []const u8, mint_address: []co
 
 /// Insert token analytics into QuestDB
 pub fn insertTokenAnalytics(self: *@This(), network: []const u8, mint_address: []const u8, slot: u64, block_time: i64, transfer_count: u64, unique_holders: u64, active_accounts: u64, total_volume_usd: f64, avg_transaction_size: f64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping token analytics insert for {s}", .{mint_address});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -304,13 +279,12 @@ pub fn insertTokenAnalytics(self: *@This(), network: []const u8, mint_address: [
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert token analytics ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -319,12 +293,8 @@ pub fn insertTokenAnalytics(self: *@This(), network: []const u8, mint_address: [
 
 /// Insert token program activity into QuestDB
 pub fn insertTokenProgramActivity(self: *@This(), network: []const u8, program_id: []const u8, slot: u64, block_time: i64, instruction_type: []const u8, execution_count: u64, error_count: u64, unique_users: u64, unique_tokens: u64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping token program activity insert for {s}", .{program_id});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -361,13 +331,12 @@ pub fn insertTokenProgramActivity(self: *@This(), network: []const u8, program_i
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert token program activity ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -376,12 +345,8 @@ pub fn insertTokenProgramActivity(self: *@This(), network: []const u8, program_i
 
 /// Insert token supply history into QuestDB
 pub fn insertTokenSupplyHistory(self: *@This(), network: []const u8, mint_address: []const u8, slot: u64, block_time: i64, total_supply: u64, circulating_supply: u64, holder_count: u64) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping token supply history insert for {s}", .{mint_address});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -413,13 +378,12 @@ pub fn insertTokenSupplyHistory(self: *@This(), network: []const u8, mint_addres
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert token supply history ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
@@ -428,12 +392,8 @@ pub fn insertTokenSupplyHistory(self: *@This(), network: []const u8, mint_addres
 
 /// Insert token price into QuestDB
 pub fn insertTokenPrice(self: *@This(), network: []const u8, mint_address: []const u8, slot: u64, block_time: i64, price_usd: f64, volume_usd: f64, liquidity_usd: f64, source: []const u8) !void {
-    if (self.logging_only) {
-        std.log.info("Logging-only mode, skipping token price insert for {s}", .{mint_address});
-        return;
     }
 
-    if (self.ilp_client == null) return types.QuestDBError.ConnectionFailed;
 
     var arena = std.heap.ArenaAllocator.init(self.allocator);
     defer arena.deinit();
@@ -467,13 +427,12 @@ pub fn insertTokenPrice(self: *@This(), network: []const u8, mint_address: []con
     
     // Timestamp (use block_time as timestamp in nanoseconds)
     try ilp_buffer.appendSlice(" ");
-    try std.fmt.format(ilp_buffer.writer(), "{d}000000", .{block_time});
+    try std.fmt.format(ilp_buffer.writer(), "{d}000000000", .{block_time});
     
     try ilp_buffer.appendSlice("\n");
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert token price ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };
