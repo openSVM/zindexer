@@ -19,7 +19,8 @@ pub const QuestDBClient = struct {
     user: []const u8,
     password: []const u8,
     database: []const u8,
-    ilp_client: ?*c_questdb.QuestDBClient,
+    // ilp_client: ?*anyopaque, // Disabled for now
+    ilp_client: ?*anyopaque, // Placeholder
     logging_only: bool,
     db_client: database.DatabaseClient,
 
@@ -31,7 +32,12 @@ pub const QuestDBClient = struct {
         .executeQueryFn = executeQueryImpl,
         .verifyConnectionFn = verifyConnectionImpl,
         .createTablesFn = createTablesImpl,
+        .insertTransactionFn = insertTransactionImpl,
         .insertTransactionBatchFn = insertTransactionBatchImpl,
+        .insertProgramExecutionFn = insertProgramExecutionImpl,
+        .insertAccountActivityFn = insertAccountActivityImpl,
+        .insertInstructionFn = insertInstructionImpl,
+        .insertAccountFn = insertAccountImpl,
         .getDatabaseSizeFn = getDatabaseSizeImpl,
         .getTableSizeFn = getTableSizeImpl,
     };
@@ -49,7 +55,7 @@ pub const QuestDBClient = struct {
         _ = try std.Uri.parse(url);
 
         // Initialize the QuestDB client
-        var ilp_client: ?*c_questdb.QuestDBClient = null;
+        var ilp_client: ?*anyopaque = null;
         var logging_only = false;
 
         // Create the client
@@ -83,9 +89,10 @@ pub const QuestDBClient = struct {
     }
 
     pub fn deinit(self: *Self) void {
-        if (self.ilp_client) |client| {
-            c_questdb.questdb_client_close(client);
-        }
+        // if (self.ilp_client) |client| {
+        //     c_questdb.questdb_client_close(client);
+        // }
+        _ = self.ilp_client; // Acknowledge the field
         self.allocator.free(self.url);
         self.allocator.free(self.user);
         self.allocator.free(self.password);
@@ -104,20 +111,16 @@ pub const QuestDBClient = struct {
         }
 
         if (self.ilp_client) |client| {
+            _ = client;
             // Execute the query using QuestDB's REST API
-            const result = c_questdb.questdb_client_execute_query(client, query.ptr, query.len) catch |err| {
-                std.log.err("Failed to execute query: {any}", .{err});
-                return types.QuestDBError.QueryFailed;
-            };
-            defer c_questdb.questdb_result_free(result);
+            // const result = c_questdb.questdb_client_execute_query(client, query.ptr, query.len) catch |err| {
+            std.log.info("Would execute query: {s} (QuestDB disabled)", .{query});
+            //     std.log.err("Failed to execute query: {any}", .{err});
 
             // Check for errors
-            if (c_questdb.questdb_result_has_error(result)) {
-                const error_msg = c_questdb.questdb_result_get_error(result);
-                std.log.err("Query failed: {s}", .{error_msg});
-                return types.QuestDBError.QueryFailed;
-            }
-        } else {
+            // // if (has_error) {
+            //     const error_msg = c_questdb.questdb_result_get_error(result);
+            //     std.log.err("Query failed: {s}", .{error_msg});
             return types.QuestDBError.ConnectionFailed;
         }
     }
@@ -144,13 +147,70 @@ pub const QuestDBClient = struct {
             std.log.warn("Failed to connect to QuestDB: {any} - continuing in logging-only mode", .{err});
             self.logging_only = true;
             return;
-        };
 
         if (self.logging_only) return;
 
         // Create tables - these would be created by the schema application script
         // We'll just verify they exist here
         try self.executeQuery("SHOW TABLES");
+    }
+
+    fn insertTransactionImpl(ptr: *anyopaque, tx: database.Transaction) database.DatabaseError!void {
+        const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+        return self.insertTransaction(tx);
+    }
+
+    pub fn insertTransaction(self: *Self, tx: database.Transaction) !void {
+        if (self.logging_only) {
+            std.log.info("Logging-only mode, skipping transaction insert for signature: {s}", .{tx.signature});
+            return;
+        }
+
+        std.log.info("Would insert transaction {s} to QuestDB (disabled)", .{tx.signature});
+    }
+
+    fn insertProgramExecutionImpl(ptr: *anyopaque, pe: database.ProgramExecution) database.DatabaseError!void {
+        const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+        return self.insertProgramExecution(pe);
+    }
+
+    pub fn insertProgramExecution(self: *Self, pe: database.ProgramExecution) !void {
+        if (self.logging_only) {
+            std.log.info("Logging-only mode, skipping program execution insert for program_id: {s}", .{pe.program_id});
+            return;
+        }
+
+        std.log.info("Would insert program execution {s} to QuestDB (disabled)", .{pe.program_id});
+    }
+
+    fn insertAccountActivityImpl(ptr: *anyopaque, activity: database.AccountActivity) database.DatabaseError!void {
+        const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+        return self.insertAccountActivity(activity);
+    }
+
+    pub fn insertAccountActivity(self: *Self, activity: database.AccountActivity) !void {
+        if (self.logging_only) {
+            std.log.info("Logging-only mode, skipping account activity insert for account: {s}", .{activity.pubkey});
+            return;
+        }
+
+        std.log.info("Would insert account activity for {s} to QuestDB (disabled)", .{activity.pubkey});
+    }
+
+    fn insertInstructionImpl(ptr: *anyopaque, inst: database.Instruction) database.DatabaseError!void {
+        const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+        _ = self;
+        _ = inst;
+        // Simplified implementation for now
+        return;
+    }
+
+    fn insertAccountImpl(ptr: *anyopaque, acc: database.Account) database.DatabaseError!void {
+        const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+        _ = self;
+        _ = acc;
+        // Simplified implementation for now
+        return;
     }
 
     fn insertTransactionBatchImpl(ptr: *anyopaque, transactions: []const std.json.Value, network_name: []const u8) database.DatabaseError!void {
@@ -223,9 +283,6 @@ pub const QuestDBClient = struct {
             _ = client; // // c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.info("Would insert ILP data (QuestDB disabled)");
             // std.log.err("Failed to insert ILP data: {any}", .{err});
-            // return types.QuestDBError.QueryFailed;
-        }
-    }
 
     fn getDatabaseSizeImpl(ptr: *anyopaque) database.DatabaseError!usize {
         const self = @as(*Self, @ptrCast(@alignCast(ptr)));
@@ -236,32 +293,8 @@ pub const QuestDBClient = struct {
         if (self.logging_only) return 0;
         if (self.ilp_client == null) return 0;
 
-        // Query to get database size
-        const query = try std.fmt.allocPrint(self.allocator,
-            \\SELECT sum(size) FROM sys.tables
-        , .{});
-        defer self.allocator.free(query);
-
-        // Execute query and parse result
-        if (self.ilp_client) |client| {
-            const result = c_questdb.questdb_client_execute_query(client, query.ptr, query.len) catch |err| {
-                std.log.warn("Failed to get database size: {any}", .{err});
-                return 0;
-            };
-            defer c_questdb.questdb_result_free(result);
-
-            if (c_questdb.questdb_result_has_error(result)) {
-                std.log.warn("Failed to get database size: {s}", .{c_questdb.questdb_result_get_error(result)});
-                return 0;
-            }
-
-            // Get the first row, first column as size
-            if (c_questdb.questdb_result_row_count(result) > 0) {
-                const size_str = c_questdb.questdb_result_get_value(result, 0, 0);
-                return std.fmt.parseInt(usize, size_str, 10) catch 0;
-            }
-        }
-
+        // QuestDB interaction disabled for now
+        std.log.info("Would query database size (QuestDB disabled)");
         return 0;
     }
 
@@ -274,32 +307,8 @@ pub const QuestDBClient = struct {
         if (self.logging_only) return 0;
         if (self.ilp_client == null) return 0;
 
-        // Query to get table size
-        const query = try std.fmt.allocPrint(self.allocator,
-            \\SELECT size FROM sys.tables WHERE name = '{s}'
-        , .{table_name});
-        defer self.allocator.free(query);
-
-        // Execute query and parse result
-        if (self.ilp_client) |client| {
-            const result = c_questdb.questdb_client_execute_query(client, query.ptr, query.len) catch |err| {
-                std.log.warn("Failed to get table size: {any}", .{err});
-                return 0;
-            };
-            defer c_questdb.questdb_result_free(result);
-
-            if (c_questdb.questdb_result_has_error(result)) {
-                std.log.warn("Failed to get table size: {s}", .{c_questdb.questdb_result_get_error(result)});
-                return 0;
-            }
-
-            // Get the first row, first column as size
-            if (c_questdb.questdb_result_row_count(result) > 0) {
-                const size_str = c_questdb.questdb_result_get_value(result, 0, 0);
-                return std.fmt.parseInt(usize, size_str, 10) catch 0;
-            }
-        }
-
+        // QuestDB interaction disabled for now
+        std.log.info("Would query table size for: {s} (QuestDB disabled)", .{table_name});
         return 0;
     }
 
@@ -323,4 +332,3 @@ pub const QuestDBClient = struct {
 
     // Account table operations
     pub usingnamespace account;
-};

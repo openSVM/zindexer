@@ -21,6 +21,7 @@ pub const DatabaseError = error{
 
 /// Common data structures used by database clients
 pub const Instruction = struct {
+    network: []const u8,
     signature: []const u8,
     slot: u64,
     block_time: i64,
@@ -57,6 +58,7 @@ pub const AccountUpdate = struct {
 };
 
 pub const Transaction = struct {
+    network: []const u8,
     signature: []const u8,
     slot: u64,
     block_time: i64,
@@ -77,6 +79,7 @@ pub const Transaction = struct {
 };
 
 pub const ProgramExecution = struct {
+    network: []const u8,
     program_id: []const u8,
     slot: u64,
     block_time: i64,
@@ -109,7 +112,12 @@ pub const DatabaseClient = struct {
         executeQueryFn: *const fn (self: *anyopaque, query: []const u8) DatabaseError!void,
         verifyConnectionFn: *const fn (self: *anyopaque) DatabaseError!void,
         createTablesFn: *const fn (self: *anyopaque) DatabaseError!void,
+        insertTransactionFn: *const fn (self: *anyopaque, tx: Transaction) DatabaseError!void,
         insertTransactionBatchFn: *const fn (self: *anyopaque, transactions: []const json.Value, network_name: []const u8) DatabaseError!void,
+        insertProgramExecutionFn: *const fn (self: *anyopaque, pe: ProgramExecution) DatabaseError!void,
+        insertAccountActivityFn: *const fn (self: *anyopaque, activity: AccountActivity) DatabaseError!void,
+        insertInstructionFn: *const fn (self: *anyopaque, instruction: Instruction) DatabaseError!void,
+        insertAccountFn: *const fn (self: *anyopaque, account: Account) DatabaseError!void,
         getDatabaseSizeFn: *const fn (self: *anyopaque) DatabaseError!usize,
         getTableSizeFn: *const fn (self: *anyopaque, table_name: []const u8) DatabaseError!usize,
     };
@@ -134,9 +142,34 @@ pub const DatabaseClient = struct {
         return self.vtable.createTablesFn(self.toAnyopaque());
     }
     
+    /// Insert a single transaction
+    pub fn insertTransaction(self: *DatabaseClient, tx: Transaction) DatabaseError!void {
+        return self.vtable.insertTransactionFn(self.toAnyopaque(), tx);
+    }
+    
     /// Insert a batch of transactions
     pub fn insertTransactionBatch(self: *DatabaseClient, transactions: []const json.Value, network_name: []const u8) DatabaseError!void {
         return self.vtable.insertTransactionBatchFn(self.toAnyopaque(), transactions, network_name);
+    }
+    
+    /// Insert a program execution record
+    pub fn insertProgramExecution(self: *DatabaseClient, pe: ProgramExecution) DatabaseError!void {
+        return self.vtable.insertProgramExecutionFn(self.toAnyopaque(), pe);
+    }
+    
+    /// Insert an account activity record
+    pub fn insertAccountActivity(self: *DatabaseClient, activity: AccountActivity) DatabaseError!void {
+        return self.vtable.insertAccountActivityFn(self.toAnyopaque(), activity);
+    }
+    
+    /// Insert an instruction record
+    pub fn insertInstruction(self: *DatabaseClient, instruction: Instruction) DatabaseError!void {
+        return self.vtable.insertInstructionFn(self.toAnyopaque(), instruction);
+    }
+    
+    /// Insert an account record
+    pub fn insertAccount(self: *DatabaseClient, account: Account) DatabaseError!void {
+        return self.vtable.insertAccountFn(self.toAnyopaque(), account);
     }
     
     /// Get database size

@@ -66,7 +66,4 @@ pub fn insertLiquidityPool(self: *@This(), network: []const u8, pool_address: []
     if (self.ilp_client) |client| {
         _ = // c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert liquidity pool ILP data: {any}", .{err});
-            return types.QuestDBError.QueryFailed;
-        };
-    }
 }

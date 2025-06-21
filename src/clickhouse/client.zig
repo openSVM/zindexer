@@ -28,7 +28,12 @@ pub const ClickHouseClient = struct {
         .executeQueryFn = executeQueryImpl,
         .verifyConnectionFn = verifyConnectionImpl,
         .createTablesFn = createTablesImpl,
+        .insertTransactionFn = insertTransactionImpl,
         .insertTransactionBatchFn = insertTransactionBatchImpl,
+        .insertProgramExecutionFn = insertProgramExecutionImpl,
+        .insertAccountActivityFn = insertAccountActivityImpl,
+        .insertInstructionFn = insertInstructionImpl,
+        .insertAccountFn = insertAccountImpl,
         .getDatabaseSizeFn = getDatabaseSizeImpl,
         .getTableSizeFn = getTableSizeImpl,
     };
@@ -157,7 +162,10 @@ pub const ClickHouseClient = struct {
 
     fn executeQueryImpl(ptr: *anyopaque, query: []const u8) database.DatabaseError!void {
         const self = @as(*Self, @ptrCast(@alignCast(ptr)));
-        return self.executeQuery(query);
+        return self.executeQuery(query) catch |err| switch (err) {
+            error.OutOfMemory => error.DatabaseError,
+            else => error.DatabaseError,
+        };
     }
     
     pub fn executeQuery(self: *Self, query: []const u8) !void {
@@ -209,7 +217,10 @@ pub const ClickHouseClient = struct {
 
     fn verifyConnectionImpl(ptr: *anyopaque) database.DatabaseError!void {
         const self = @as(*Self, @ptrCast(@alignCast(ptr)));
-        return self.verifyConnection();
+        return self.verifyConnection() catch |err| switch (err) {
+            error.OutOfMemory => error.DatabaseError,
+            else => error.DatabaseError,
+        };
     }
     
     pub fn verifyConnection(self: *Self) !void {
@@ -220,7 +231,10 @@ pub const ClickHouseClient = struct {
 
     fn createTablesImpl(ptr: *anyopaque) database.DatabaseError!void {
         const self = @as(*Self, @ptrCast(@alignCast(ptr)));
-        return self.createTables();
+        return self.createTables() catch |err| switch (err) {
+            error.OutOfMemory => error.DatabaseError,
+            else => error.DatabaseError,
+        };
     }
     
     pub fn createTables(self: *Self) !void {
@@ -331,6 +345,127 @@ pub const ClickHouseClient = struct {
         );
     }
 
+    fn insertTransactionImpl(ptr: *anyopaque, tx: database.Transaction) database.DatabaseError!void {
+        const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+        return self.insertSingleTransaction(tx) catch |err| switch (err) {
+            error.OutOfMemory => error.DatabaseError,
+            else => error.DatabaseError,
+        };
+    }
+
+    pub fn insertSingleTransaction(self: *Self, tx: database.Transaction) !void {
+        if (self.logging_only) {
+            std.log.info("Logging-only mode, skipping transaction insert for signature: {s}", .{tx.signature});
+            return;
+        }
+
+        // Create a simple insert query for the transaction
+        const query = try std.fmt.allocPrint(self.allocator, 
+            \\INSERT INTO transactions VALUES ('{s}', '{s}', {d}, {d}, {any}, {d}, {d}, {d}, '{s}', '{s}', '{s}', '{s}', '{s}', '{s}', '{s}', '{s}', '{s}')
+        , .{
+            tx.network,
+            tx.signature, 
+            tx.slot, 
+            tx.block_time, 
+            tx.success, 
+            tx.fee, 
+            tx.compute_units_consumed, 
+            tx.compute_units_price, 
+            tx.recent_blockhash,
+            "", // program_ids placeholder
+            "", // signers placeholder  
+            "", // account_keys placeholder
+            "", // pre_balances placeholder
+            "", // post_balances placeholder
+            "", // pre_token_balances placeholder
+            "", // post_token_balances placeholder
+            tx.error_msg orelse ""
+        });
+        defer self.allocator.free(query);
+        
+        try self.executeQuery(query);
+    }
+
+    fn insertProgramExecutionImpl(ptr: *anyopaque, pe: database.ProgramExecution) database.DatabaseError!void {
+        const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+        return self.insertProgramExecutionSingle(pe) catch |err| switch (err) {
+            error.OutOfMemory => error.DatabaseError,
+            else => error.DatabaseError,
+        };
+    }
+
+    pub fn insertProgramExecutionSingle(self: *Self, pe: database.ProgramExecution) !void {
+        if (self.logging_only) {
+            std.log.info("Logging-only mode, skipping program execution insert for program_id: {s}", .{pe.program_id});
+            return;
+        }
+
+        // Create a simple insert query for the program execution
+        const query = try std.fmt.allocPrint(self.allocator, 
+            \\INSERT INTO program_executions VALUES ('{s}', '{s}', {d}, {d}, {d}, {d}, {d}, {d}, {d})
+        , .{
+            pe.network,
+            pe.program_id, 
+            pe.slot, 
+            pe.block_time, 
+            pe.execution_count,
+            pe.total_cu_consumed, 
+            pe.total_fee,
+            pe.success_count,
+            pe.error_count
+        });
+        defer self.allocator.free(query);
+        
+        try self.executeQuery(query);
+    }
+
+    fn insertAccountActivityImpl(ptr: *anyopaque, activity: database.AccountActivity) database.DatabaseError!void {
+        const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+        return self.insertAccountActivitySingle(activity) catch |err| switch (err) {
+            error.OutOfMemory => error.DatabaseError,
+            else => error.DatabaseError,
+        };
+    }
+
+    pub fn insertAccountActivitySingle(self: *Self, activity: database.AccountActivity) !void {
+        if (self.logging_only) {
+            std.log.info("Logging-only mode, skipping account activity insert for account: {s}", .{activity.pubkey});
+            return;
+        }
+
+        const query = try std.fmt.allocPrint(self.allocator, 
+            \\INSERT INTO account_activity VALUES ('{s}', '{s}', {d}, {d}, '{s}', {d}, {d}, {d})
+        , .{
+            activity.network, 
+            activity.pubkey, 
+            activity.slot, 
+            activity.block_time, 
+            activity.program_id,
+            activity.write_count, 
+            activity.cu_consumed,
+            activity.fee_paid
+        });
+        defer self.allocator.free(query);
+        
+        try self.executeQuery(query);
+    }
+
+    fn insertInstructionImpl(ptr: *anyopaque, inst: database.Instruction) database.DatabaseError!void {
+        const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+        _ = self;
+        _ = inst;
+        // Simplified implementation for now
+        return;
+    }
+
+    fn insertAccountImpl(ptr: *anyopaque, acc: database.Account) database.DatabaseError!void {
+        const self = @as(*Self, @ptrCast(@alignCast(ptr)));
+        _ = self;
+        _ = acc;
+        // Simplified implementation for now
+        return;
+    }
+
     // Core table operations
     pub usingnamespace core;
 
@@ -355,7 +490,10 @@ pub const ClickHouseClient = struct {
     // Size tracking operations
     fn getDatabaseSizeImpl(ptr: *anyopaque) database.DatabaseError!usize {
         const self = @as(*Self, @ptrCast(@alignCast(ptr)));
-        return self.getDatabaseSize();
+        return self.getDatabaseSize() catch |err| switch (err) {
+            error.OutOfMemory => error.DatabaseError,
+            else => error.DatabaseError,
+        };
     }
     
     pub fn getDatabaseSize(self: *Self) !usize {
@@ -390,7 +528,10 @@ pub const ClickHouseClient = struct {
 
     fn getTableSizeImpl(ptr: *anyopaque, table_name: []const u8) database.DatabaseError!usize {
         const self = @as(*Self, @ptrCast(@alignCast(ptr)));
-        return self.getTableSize(table_name);
+        return self.getTableSize(table_name) catch |err| switch (err) {
+            error.OutOfMemory => error.DatabaseError,
+            else => error.DatabaseError,
+        };
     }
     
     pub fn getTableSize(self: *Self, table_name: []const u8) !usize {
@@ -425,7 +566,10 @@ pub const ClickHouseClient = struct {
 
     fn insertTransactionBatchImpl(ptr: *anyopaque, transactions: []const std.json.Value, network_name: []const u8) database.DatabaseError!void {
         const self = @as(*Self, @ptrCast(@alignCast(ptr)));
-        return self.insertTransactionBatch(transactions, network_name);
+        return self.insertTransactionBatch(transactions, network_name) catch |err| switch (err) {
+            error.OutOfMemory => error.DatabaseError,
+            else => error.DatabaseError,
+        };
     }
     
     pub fn insertTransactionBatch(self: *Self, transactions: []const std.json.Value, network_name: []const u8) !void {

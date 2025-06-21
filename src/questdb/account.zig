@@ -62,9 +62,6 @@ pub fn insertAccount(self: *@This(), network: []const u8, pubkey: []const u8, sl
     if (self.ilp_client) |client| {
         _ = // c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert account ILP data: {any}", .{err});
-            return types.QuestDBError.QueryFailed;
-        };
-    }
 }
 
 /// Insert an account update into QuestDB
@@ -124,7 +121,4 @@ pub fn insertAccountUpdate(self: *@This(), network: []const u8, pubkey: []const 
     if (self.ilp_client) |client| {
         _ = // c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert account update ILP data: {any}", .{err});
-            return types.QuestDBError.QueryFailed;
-        };
-    }
 }
