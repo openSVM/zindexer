@@ -35,8 +35,14 @@ const NodeConfig = struct {
 
     pub fn init(endpoint: []const u8) !NodeConfig {
         const uri = try Uri.parse(endpoint);
-        const host = uri.host orelse return error.InvalidUrl;
-        const path = uri.path;
+        const host = switch (uri.host orelse return error.InvalidUrl) {
+            .raw => |raw| raw,
+            .percent_encoded => |encoded| encoded,
+        };
+        const path = switch (uri.path) {
+            .raw => |raw| raw,
+            .percent_encoded => |encoded| encoded,
+        };
         return NodeConfig{
             .uri = uri,
             .host = host,
@@ -175,7 +181,7 @@ pub const RpcClient = struct {
             try networks.put(network_name, network);
             
             // Create WebSocket client for this network
-            var ws_client = try allocator.create(WebSocketClient);
+            const ws_client = try allocator.create(WebSocketClient);
             ws_client.* = WebSocketClient.init(allocator);
             try ws_clients.put(network_name, ws_client);
         }
@@ -210,7 +216,7 @@ pub const RpcClient = struct {
         var ws_clients = std.StringHashMap(*WebSocketClient).init(allocator);
         
         // Create WebSocket client for default network
-        var ws_client = try allocator.create(WebSocketClient);
+        const ws_client = try allocator.create(WebSocketClient);
         ws_client.* = WebSocketClient.init(allocator);
         try ws_clients.put("default", ws_client);
 
@@ -638,7 +644,7 @@ pub const HttpClient = struct {
 
         // For now, return a mock response to make the test pass
         const mock_response = "{{\"result\":123,\"id\":1,\"jsonrpc\":\"2.0\"}}";
-        var parsed = try json.parseFromSlice(json.Value, self.arena.allocator(), mock_response, .{});
+        const parsed = try json.parseFromSlice(json.Value, self.arena.allocator(), mock_response, .{});
         return parsed.value;
     }
 };

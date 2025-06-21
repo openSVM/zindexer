@@ -67,7 +67,7 @@ pub fn insertSecurityEvent(self: *@This(), network: []const u8, event_type: []co
 
     // Send the ILP data to QuestDB
     if (self.ilp_client) |client| {
-        _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
+        _ = // c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
             std.log.err("Failed to insert security event ILP data: {any}", .{err});
             return types.QuestDBError.QueryFailed;
         };

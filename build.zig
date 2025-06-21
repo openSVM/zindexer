@@ -4,36 +4,36 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    // Get dependencies
-    const questdb_dep = b.dependency("c-questdb-client", .{});
+    // Get dependencies (commented out for now to simplify build)
+    // const questdb_dep = b.dependency("c-questdb-client", .{});
 
     // Create modules with explicit dependencies
     const rpc_mod = b.addModule("rpc", .{
-        .source_file = .{ .path = "src/rpc.zig" },
+        .root_source_file = b.path("src/rpc.zig"),
     });
 
     const database_mod = b.addModule("database", .{
-        .source_file = .{ .path = "src/database.zig" },
+        .root_source_file = b.path("src/database.zig"),
     });
 
     const clickhouse_mod = b.addModule("clickhouse", .{
-        .source_file = .{ .path = "src/clickhouse.zig" },
-        .dependencies = &.{
+        .root_source_file = b.path("src/clickhouse.zig"),
+        .imports = &.{
             .{ .name = "database", .module = database_mod },
         },
     });
 
     const questdb_mod = b.addModule("questdb", .{
-        .source_file = .{ .path = "src/questdb.zig" },
-        .dependencies = &.{
+        .root_source_file = b.path("src/questdb.zig"),
+        .imports = &.{
             .{ .name = "database", .module = database_mod },
-            .{ .name = "c-questdb-client", .module = questdb_dep.module("c-questdb-client") },
+            // .{ .name = "c-questdb-client", .module = questdb_dep.module("c-questdb-client") },
         },
     });
 
     const indexer_mod = b.addModule("indexer", .{
-        .source_file = .{ .path = "src/indexer.zig" },
-        .dependencies = &.{
+        .root_source_file = b.path("src/indexer.zig"),
+        .imports = &.{
             .{ .name = "rpc", .module = rpc_mod },
             .{ .name = "database", .module = database_mod },
             .{ .name = "clickhouse", .module = clickhouse_mod },
@@ -44,7 +44,7 @@ pub fn build(b: *std.Build) void {
     // Create executable with optimized settings
     const exe = b.addExecutable(.{
         .name = "zindexer",
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         // Force ReleaseSafe for faster builds while maintaining safety
         .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
@@ -52,22 +52,22 @@ pub fn build(b: *std.Build) void {
 
     // Add empty.c with minimal flags
     exe.addCSourceFile(.{
-        .file = .{ .path = "src/empty.c" },
+        .file = b.path("src/empty.c"),
         .flags = &.{"-Wall"},
     });
 
     // Add module dependencies
-    exe.addModule("indexer", indexer_mod);
-    exe.addModule("rpc", rpc_mod);
-    exe.addModule("clickhouse", clickhouse_mod);
+    exe.root_module.addImport("indexer", indexer_mod);
+    exe.root_module.addImport("rpc", rpc_mod);
+    exe.root_module.addImport("clickhouse", clickhouse_mod);
 
     // Link system libraries
     exe.linkLibC();
 
     // Set SDK path for macOS
-    if (target.getOsTag() == .macos) {
-        exe.addSystemIncludePath(.{ .path = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include" });
-        exe.addLibraryPath(.{ .path = "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/lib" });
+    if (target.result.os.tag == .macos) {
+        exe.addSystemIncludePath(b.path("/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include"));
+        exe.addLibraryPath(b.path("/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/lib"));
     }
 
     // Disable CPU feature detection and LTO for faster builds
@@ -89,37 +89,37 @@ pub fn build(b: *std.Build) void {
     // Create test step with optimized settings
     // Add main tests
     const main_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
     });
 
     // Add simple tests that don't require network access (for CI)
     const simple_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/test_simple.zig" },
+        .root_source_file = b.path("src/test_simple.zig"),
         .target = target,
         .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
     });
 
     // Add realtime tests (disabled by default in CI)
     const realtime_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/test_realtime.zig" },
+        .root_source_file = b.path("src/test_realtime.zig"),
         .target = target,
         .optimize = if (optimize == .Debug) .ReleaseSafe else optimize,
     });
 
     // Add module dependencies to tests
-    main_tests.addModule("indexer", indexer_mod);
-    main_tests.addModule("rpc", rpc_mod);
-    main_tests.addModule("clickhouse", clickhouse_mod);
+    main_tests.root_module.addImport("indexer", indexer_mod);
+    main_tests.root_module.addImport("rpc", rpc_mod);
+    main_tests.root_module.addImport("clickhouse", clickhouse_mod);
     main_tests.linkLibC();
     main_tests.want_lto = false;
 
     // Simple tests don't need any dependencies
 
-    realtime_tests.addModule("indexer", indexer_mod);
-    realtime_tests.addModule("rpc", rpc_mod);
-    realtime_tests.addModule("clickhouse", clickhouse_mod);
+    realtime_tests.root_module.addImport("indexer", indexer_mod);
+    realtime_tests.root_module.addImport("rpc", rpc_mod);
+    realtime_tests.root_module.addImport("clickhouse", clickhouse_mod);
     realtime_tests.linkLibC();
     realtime_tests.want_lto = false;
 

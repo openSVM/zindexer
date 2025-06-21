@@ -11,7 +11,7 @@ const security = @import("security.zig");
 const instruction = @import("instruction.zig");
 const account = @import("account.zig");
 const database = @import("../database.zig");
-const c_questdb = @import("c-questdb-client");
+// const c_questdb = @import("c-questdb-client"); // Commented out for now
 
 pub const QuestDBClient = struct {
     allocator: Allocator,
@@ -41,9 +41,9 @@ pub const QuestDBClient = struct {
         url: []const u8,
         user: []const u8,
         password: []const u8,
-        database: []const u8,
+        db_name: []const u8,
     ) !Self {
-        std.log.info("Initializing QuestDB client with URL: {s}, user: {s}, database: {s}", .{ url, user, database });
+        std.log.info("Initializing QuestDB client with URL: {s}, user: {s}, database: {s}", .{ url, user, db_name });
 
         // Validate URL
         _ = try std.Uri.parse(url);
@@ -53,19 +53,19 @@ pub const QuestDBClient = struct {
         var logging_only = false;
 
         // Create the client
-        ilp_client = c_questdb.questdb_client_new(url.ptr, url.len) catch |err| {
-            std.log.warn("Failed to create QuestDB client: {any} - continuing in logging-only mode", .{err});
-            logging_only = true;
-            ilp_client = null;
-        };
+        ilp_client = null; // c_questdb.questdb_client_new(url.ptr, url.len) catch |err| {
+        std.log.warn("QuestDB dependency not available - continuing in logging-only mode", .{});
+        logging_only = true;
+        // ilp_client = null;
+        // };
 
         // Create the client instance
-        var client = Self{
+        const client = Self{
             .allocator = allocator,
             .url = try allocator.dupe(u8, url),
             .user = try allocator.dupe(u8, user),
             .password = try allocator.dupe(u8, password),
-            .database = try allocator.dupe(u8, database),
+            .database = try allocator.dupe(u8, db_name),
             .ilp_client = ilp_client,
             .logging_only = logging_only,
             .db_client = database.DatabaseClient{
@@ -220,10 +220,10 @@ pub const QuestDBClient = struct {
 
         // Send the ILP data to QuestDB
         if (self.ilp_client) |client| {
-            _ = c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
-                std.log.err("Failed to insert ILP data: {any}", .{err});
-                return types.QuestDBError.QueryFailed;
-            };
+            _ = client; // // c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
+            std.log.info("Would insert ILP data (QuestDB disabled)");
+            // std.log.err("Failed to insert ILP data: {any}", .{err});
+            // return types.QuestDBError.QueryFailed;
         }
     }
 
