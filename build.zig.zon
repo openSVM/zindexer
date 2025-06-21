@@ -1,7 +1,7 @@
 .{
     .name = .zindexer,
     .version = "0.1.0",
-    .fingerprint = 0xe84b558b0cc5539d,
+    .fingerprint = 0xe84b558b6c2eb0c2,
     .minimum_zig_version = "0.14.0",
     .dependencies = .{
         // .@"c-questdb-client" = .{
