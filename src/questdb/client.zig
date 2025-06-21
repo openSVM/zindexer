@@ -147,6 +147,7 @@ pub const QuestDBClient = struct {
             std.log.warn("Failed to connect to QuestDB: {any} - continuing in logging-only mode", .{err});
             self.logging_only = true;
             return;
+        };
 
         if (self.logging_only) return;
 
@@ -281,8 +282,10 @@ pub const QuestDBClient = struct {
         // Send the ILP data to QuestDB
         if (self.ilp_client) |client| {
             _ = client; // // c_questdb.questdb_client_insert_ilp(client, ilp_buffer.items.ptr, ilp_buffer.items.len) catch |err| {
-            std.log.info("Would insert ILP data (QuestDB disabled)");
+            std.log.info("Would insert ILP data (QuestDB disabled)", .{});
             // std.log.err("Failed to insert ILP data: {any}", .{err});
+        }
+    }
 
     fn getDatabaseSizeImpl(ptr: *anyopaque) database.DatabaseError!usize {
         const self = @as(*Self, @ptrCast(@alignCast(ptr)));
@@ -294,7 +297,7 @@ pub const QuestDBClient = struct {
         if (self.ilp_client == null) return 0;
 
         // QuestDB interaction disabled for now
-        std.log.info("Would query database size (QuestDB disabled)");
+        std.log.info("Would query database size (QuestDB disabled)", .{});
         return 0;
     }
 
@@ -332,3 +335,4 @@ pub const QuestDBClient = struct {
 
     // Account table operations
     pub usingnamespace account;
+};

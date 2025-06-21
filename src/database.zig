@@ -34,6 +34,7 @@ pub const Instruction = struct {
 };
 
 pub const Account = struct {
+    network: []const u8,
     pubkey: []const u8,
     slot: u64,
     block_time: i64,
